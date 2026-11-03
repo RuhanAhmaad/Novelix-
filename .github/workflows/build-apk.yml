@@ -35,25 +35,10 @@ jobs:
       - name: Install Node Dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Ensure Static Out Directory Exists
-        run: |
-          mkdir -p out
-          cat > out/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>NOVELIX</title>
-            </head>
-            <body style="background:#070709;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-              <h2>Loading NOVELIX...</h2>
-            </body>
-          </html>
-          HTMLEOF
-
       - name: Sync Capacitor Android
-        run: pnpm cap sync android
+        run: |
+          ls -lh out/index.html
+          pnpm cap sync android
 
       - name: Grant Execute Permission to Gradlew
         run: chmod +x android/gradlew
