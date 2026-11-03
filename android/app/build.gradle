@@ -44,8 +44,15 @@ dependencies {
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
-    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+
+    // Firebase Android Platform BoM & Native SDKs
+    implementation platform('com.google.firebase:firebase-bom:33.9.0')
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.firebase:firebase-firestore'
+    implementation 'com.google.firebase:firebase-storage'
+    implementation 'com.google.firebase:firebase-messaging'
 }
 
 apply from: 'capacitor.build.gradle'

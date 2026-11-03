@@ -1,0 +1,143 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+      );
+    }
+
+    // ─── USERS / PROFILES ───
+    match /users/{userId} {
+      allow read: if true; // Public profiles
+      allow create: if isAuthenticated() && request.auth.uid == userId
+                    && (!request.resource.data.keys().hasAny(['isAdmin', 'role']) || isAdmin());
+      allow update: if isOwner(userId)
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'role']) || isAdmin())
+                    || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+
+      // User Private Subcollections
+      match /bookmarks/{bookId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /likes/{bookId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /reading_progress/{progressId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /reading_lists/{listId} {
+        allow read: if resource.data.isPublic == true || isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+      match /notifications/{notifId} {
+        allow read, update, delete: if isOwner(userId);
+        allow create: if isAuthenticated();
+      }
+      match /drive_accounts/{accountId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ─── BOOKS & NOVELS ───
+    match /books/{bookId} {
+      allow read: if resource.data.visibility == 'public' && resource.data.publishStatus == 'published'
+                  || (isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin()));
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.authorId == request.auth.uid ||
+        isAdmin() ||
+        // Allow readers to increment viewCount, bookmarkCount, likeCount via validated diff
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount', 'bookmarkCount', 'likeCount', 'avgRating', 'ratingCount'])
+      );
+      allow delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+
+      // Book Languages / Editions Subcollection
+      match /languages/{langId} {
+        allow read: if true;
+        allow write: if isAuthenticated() && (
+          get(/databases/$(database)/documents/books/$(bookId)).data.authorId == request.auth.uid || isAdmin()
+        );
+      }
+
+      // Chapters Subcollection (Manga / Manhwa / Novels)
+      match /chapters/{chapterId} {
+        allow read: if resource.data.isPublished == true
+                    || (isAuthenticated() && (get(/databases/$(database)/documents/books/$(bookId)).data.authorId == request.auth.uid || isAdmin()));
+        allow write: if isAuthenticated() && (
+          get(/databases/$(database)/documents/books/$(bookId)).data.authorId == request.auth.uid || isAdmin()
+        );
+      }
+
+      // Reviews Subcollection
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;
+        allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      }
+
+      // Comments Subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+
+    // ─── SERIES ───
+    match /series/{seriesId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    // ─── AUTHORS & FOLLOWS ───
+    match /authors/{authorId}/followers/{followerId} {
+      allow read: if true;
+      allow create, delete: if isAuthenticated() && request.auth.uid == followerId;
+    }
+
+    // ─── ADVERTISEMENTS ───
+    match /advertisements/{adId} {
+      allow read: if resource.data.isActive == true;
+      allow write: if isAdmin();
+
+      match /events/{eventId} {
+        allow create: if true; // Impression and click logs
+        allow read: if isAdmin();
+      }
+    }
+
+    // ─── REPORTS ───
+    match /reports/{reportId} {
+      allow create: if isAuthenticated() && request.resource.data.reporterId == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ─── ADMIN LOGS & SETTINGS ───
+    match /admin_logs/{logId} {
+      allow read, write: if isAdmin();
+    }
+    match /admin_settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /admin_users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,56 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*')
+          && request.resource.size < 10 * 1024 * 1024; // 10MB max
+    }
+
+    function isPdf() {
+      return (request.resource.contentType == 'application/pdf'
+              || request.resource.contentType == 'application/x-pdf')
+          && request.resource.size < 50 * 1024 * 1024; // 50MB max
+    }
+
+    // Book covers: publicly readable, authors upload
+    match /covers/{bookId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage();
+    }
+
+    // Book PDF files: publicly readable, authors upload
+    match /books/{bookId}/pdfs/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isPdf();
+    }
+
+    // Manhwa / Manga chapter images
+    match /chapters/{chapterId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage();
+    }
+
+    // User profile avatars
+    match /avatars/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId && isImage();
+    }
+
+    // User cover banners
+    match /banners/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId && isImage();
+    }
+
+    // Advertisements media
+    match /ads/{adId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isImage();
+    }
+  }
+}

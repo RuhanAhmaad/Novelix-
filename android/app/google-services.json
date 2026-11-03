@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "239783323113",
+    "firebase_url": "https://novelxa-48f15-default-rtdb.firebaseio.com",
+    "project_id": "novelxa-48f15",
+    "storage_bucket": "novelxa-48f15.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:239783323113:android:72ab9f84efe4b4957f5778",
+        "android_client_info": {
+          "package_name": "com.novelix.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzlkwY8Xcyyp-fh_JS_z2ob4xgc4YnLps"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

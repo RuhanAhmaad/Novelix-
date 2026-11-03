@@ -41,15 +41,15 @@
                 <data android:scheme="https" android:host="novelix.app" />
             </intent-filter>
 
-            <!-- OAuth Callback (Supabase Google Auth) -->
+            <!-- OAuth Callback (Firebase Google Auth) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="gzwpfvhmjweeydiwdsga.supabase.co"
-                    android:path="/auth/v1/callback" />
+                    android:host="novelxa-48f15.firebaseapp.com"
+                    android:path="/__/auth/handler" />
             </intent-filter>
 
         </activity>
