@@ -1,0 +1,2764 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#070709">
+  <title>NOVELIX 2.1 — Real-Time Publishing Platform</title>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              950: '#040406', 900: '#070709', 850: '#0a0a0f', 800: '#0f0f17',
+              750: '#151522', 700: '#1b1b2c', 600: '#27273e', 500: '#363656',
+              primary: '#8b5cf6', violet: '#7c3aed', accent: '#a855f7',
+              glow: '#c084fc', gold: '#f59e0b', rose: '#f43f5e'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Display"','Roboto','Helvetica','Arial','sans-serif'],
+            mono: ['"SF Mono"','Menlo','Monaco','Courier New','monospace']
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-out',
+            'slide-up': 'slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+            'slide-down': 'slideDown 0.25s ease-out',
+            'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+            'shimmer': 'shimmer 1.5s infinite',
+            'bounce-sm': 'bounceSm 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+          },
+          keyframes: {
+            fadeIn: { from: {opacity:0}, to: {opacity:1} },
+            slideUp: { from: {opacity:0, transform:'translateY(24px)'}, to: {opacity:1, transform:'translateY(0)'} },
+            slideDown: { from: {opacity:0, transform:'translateY(-12px)'}, to: {opacity:1, transform:'translateY(0)'} },
+            pulseGlow: { '0%,100%': {boxShadow:'0 0 8px rgba(139,92,246,0.4)'}, '50%': {boxShadow:'0 0 24px rgba(139,92,246,0.8)'} },
+            shimmer: { '0%': {backgroundPosition:'-200% 0'}, '100%': {backgroundPosition:'200% 0'} },
+            bounceSm: { '0%': {transform:'scale(1)'}, '50%': {transform:'scale(1.12)'}, '100%': {transform:'scale(1)'} }
+          }
+        }
+      }
+    };
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+
+  <style>
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: #070709;
+      color: #f3f4f6;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      overflow-x: hidden;
+      padding-top: var(--sat);
+      padding-bottom: calc(76px + var(--sab));
+      min-height: 100dvh;
+    }
+    .safe-bottom { padding-bottom: calc(12px + var(--sab)); }
+    .safe-top { padding-top: calc(8px + var(--sat)); }
+    .hide-scrollbar::-webkit-scrollbar { display:none; }
+    .hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+    .glass-nav {
+      background: rgba(7,7,9,0.88);
+      backdrop-filter: blur(28px) saturate(200%);
+      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      border-top: 1px solid rgba(139,92,246,0.18);
+    }
+    .glass-header {
+      background: rgba(7,7,9,0.9);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .glass-card {
+      background: rgba(15,15,23,0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .glass-modal {
+      background: rgba(10,10,15,0.96);
+      backdrop-filter: blur(32px) saturate(200%);
+      -webkit-backdrop-filter: blur(32px) saturate(200%);
+      border: 1px solid rgba(139,92,246,0.2);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+      font-weight: 600;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(139,92,246,0.3);
+    }
+    .btn-primary:active { transform: scale(0.97); box-shadow: 0 2px 8px rgba(139,92,246,0.2); }
+    .btn-primary:hover { background: linear-gradient(135deg, #9d72f8, #8b5cf6); box-shadow: 0 6px 20px rgba(139,92,246,0.45); }
+    .btn-ghost {
+      background: rgba(139,92,246,0.1);
+      border: 1px solid rgba(139,92,246,0.25);
+      color: #a78bfa;
+      transition: all 0.2s;
+    }
+    .btn-ghost:active { transform: scale(0.97); }
+    .btn-ghost:hover { background: rgba(139,92,246,0.18); }
+    .book-card-hover { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s; }
+    .book-card-hover:active { transform: scale(0.95); box-shadow: 0 8px 32px rgba(139,92,246,0.2); }
+    .nav-item { transition: all 0.2s cubic-bezier(0.4,0,0.2,1); }
+    .nav-item.active .nav-icon { color: #8b5cf6; }
+    .nav-item.active .nav-label { color: #8b5cf6; }
+    .page { display: none; animation: fadeIn 0.3s ease-out; }
+    .page.active { display: block; }
+    .shimmer-bg {
+      background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    .gradient-border {
+      background: linear-gradient(135deg, #8b5cf6, #a855f7, #7c3aed);
+      padding: 1px;
+      border-radius: 12px;
+    }
+    .gradient-border > * { border-radius: 11px; }
+    .purple-glow { box-shadow: 0 0 20px rgba(139,92,246,0.35), inset 0 0 20px rgba(139,92,246,0.05); }
+    .realtime-dot { animation: pulseGlow 1.5s ease-in-out infinite; }
+    input, textarea, select {
+      background: rgba(15,15,23,0.9) !important;
+      border: 1px solid rgba(139,92,246,0.2) !important;
+      color: #f3f4f6 !important;
+      border-radius: 10px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: rgba(139,92,246,0.6) !important;
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.15) !important;
+      outline: none !important;
+    }
+    input::placeholder, textarea::placeholder { color: rgba(139,139,160,0.6); }
+    .toast {
+      position: fixed;
+      top: calc(var(--sat) + 60px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      z-index: 9999;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      min-width: 220px;
+      max-width: 90vw;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      animation: fadeIn 0.2s;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-sheet {
+      width: 100%;
+      max-width: 520px;
+      max-height: 92vh;
+      overflow-y: auto;
+      border-radius: 20px 20px 0 0;
+      animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @media (min-width: 520px) {
+      .modal-sheet { border-radius: 20px; margin-bottom: 24px; }
+      .modal-overlay { align-items: center; }
+    }
+    /* Terminal */
+    .terminal-screen {
+      background: #000;
+      color: #00ff41;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .terminal-cursor::after {
+      content: '█';
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    /* PDF Reader */
+    #pdfCanvas { display: block; margin: 0 auto; max-width: 100%; }
+    .reader-fullscreen {
+      position: fixed; inset: 0;
+      background: #000;
+      z-index: 2000;
+      overflow-y: auto;
+    }
+    /* Rating stars */
+    .star-btn { color: rgba(245,158,11,0.3); transition: color 0.15s; font-size: 22px; }
+    .star-btn.active, .star-btn:hover { color: #f59e0b; }
+    /* Genre tag */
+    .genre-tag {
+      background: rgba(139,92,246,0.15);
+      border: 1px solid rgba(139,92,246,0.25);
+      color: #a78bfa;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    /* Status indicator */
+    .status-live {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: #4ade80; font-size: 11px; font-weight: 600;
+      padding: 3px 10px; border-radius: 999px;
+    }
+    .status-live::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #4ade80;
+      animation: pulseGlow 1.5s infinite;
+    }
+    /* Skeleton loader */
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body class="font-sans">
+
+<!-- ════════════════════════════════════════════════════════
+     TOAST NOTIFICATION
+═══════════════════════════════════════════════════════════ -->
+<div id="toast" class="toast glass-modal rounded-2xl px-5 py-3 flex items-center gap-3 shadow-2xl">
+  <span id="toastIcon" class="text-lg">✓</span>
+  <span id="toastMsg" class="text-sm font-medium flex-1">Message</span>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     OFFLINE BANNER
+═══════════════════════════════════════════════════════════ -->
+<div id="offlineBanner" class="fixed top-0 left-0 right-0 z-50 hidden bg-amber-500/90 text-black text-center py-1 text-xs font-semibold" style="padding-top:calc(var(--sat) + 4px)">
+  ⚡ No internet connection — some features unavailable
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════════════ -->
+<header id="mainHeader" class="glass-header fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 safe-top" style="height:calc(56px + var(--sat)); padding-top:calc(10px + var(--sat))">
+  <div class="flex items-center gap-2" id="logoArea">
+    <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">
+      <span class="text-white font-black text-sm">N</span>
+    </div>
+    <div>
+      <span class="text-white font-black text-lg tracking-tight" style="letter-spacing:-0.5px">NOVELIX</span>
+      <span class="text-brand-primary font-bold text-sm ml-1">2.1</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-2">
+    <div class="status-live" id="realtimeStatus" style="display:none">LIVE</div>
+    <button id="notifBtn" class="w-9 h-9 rounded-xl btn-ghost flex items-center justify-center relative" style="display:none">
+      <span class="text-base">🔔</span>
+      <span id="notifBadge" class="absolute -top-1 -right-1 w-4 h-4 bg-brand-rose rounded-full text-white text-[9px] font-bold flex items-center justify-center hidden">0</span>
+    </button>
+    <button id="headerAuthBtn" onclick="openAuthModal()" class="btn-primary px-4 py-2 rounded-xl text-sm">Sign In</button>
+    <button id="headerAvatarBtn" onclick="showPage('profile')" class="hidden w-9 h-9 rounded-full overflow-hidden border-2 border-brand-primary">
+      <div id="headerAvatarImg" class="w-full h-full flex items-center justify-center text-sm font-bold" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"></div>
+    </button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════
+     MAIN CONTENT AREA
+═══════════════════════════════════════════════════════════ -->
+<main id="mainContent" style="padding-top:calc(56px + var(--sat)); min-height:100dvh">
+
+  <!-- ── HOME PAGE ── -->
+  <div id="page-home" class="page active">
+    <!-- Hero Banner -->
+    <div class="relative overflow-hidden px-4 py-6" style="background:linear-gradient(180deg,rgba(139,92,246,0.12) 0%,transparent 100%)">
+      <div class="absolute inset-0 opacity-30" style="background:radial-gradient(ellipse at 60% 0%,rgba(139,92,246,0.4) 0%,transparent 70%)"></div>
+      <div class="relative">
+        <p class="text-brand-primary text-xs font-semibold uppercase tracking-widest mb-1">Real-Time Platform</p>
+        <h1 class="text-2xl font-black text-white mb-2" style="letter-spacing:-0.5px">Discover Stories<br>Worth Reading</h1>
+        <p class="text-gray-400 text-sm mb-4">Books, novels, manga, manhwa & more — published live</p>
+        <button onclick="openAuthModal()" id="heroCtaBtn" class="btn-primary px-5 py-2.5 rounded-xl text-sm">Start Reading Free</button>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="px-4 mb-5">
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
+        <input type="text" id="homeSearch" placeholder="Search books, authors, genres..." class="w-full pl-9 pr-4 py-3 text-sm" oninput="handleSearch(this.value)">
+      </div>
+    </div>
+
+    <!-- Featured Section -->
+    <div id="featuredSection" class="mb-6">
+      <div class="flex items-center justify-between px-4 mb-3">
+        <h2 class="text-white font-bold text-base">✨ Featured</h2>
+        <button onclick="showPage('explore')" class="text-brand-primary text-xs font-semibold">See all →</button>
+      </div>
+      <div id="featuredBooks" class="flex gap-3 px-4 overflow-x-auto hide-scrollbar pb-2"></div>
+    </div>
+
+    <!-- Trending -->
+    <div id="trendingSection" class="mb-6">
+      <div class="flex items-center justify-between px-4 mb-3">
+        <h2 class="text-white font-bold text-base">🔥 Trending</h2>
+        <div class="flex gap-2">
+          <button onclick="filterTrending('all')" id="trendAll" class="genre-tag cursor-pointer" style="background:rgba(139,92,246,0.3)">All</button>
+          <button onclick="filterTrending('manga')" id="trendManga" class="genre-tag cursor-pointer">Manga</button>
+          <button onclick="filterTrending('novel')" id="trendNovel" class="genre-tag cursor-pointer">Novels</button>
+        </div>
+      </div>
+      <div id="trendingBooks" class="grid grid-cols-2 gap-3 px-4"></div>
+    </div>
+
+    <!-- Recent -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between px-4 mb-3">
+        <h2 class="text-white font-bold text-base">🆕 Recently Added</h2>
+      </div>
+      <div id="recentBooks" class="space-y-3 px-4"></div>
+    </div>
+
+    <!-- Empty state when no books -->
+    <div id="noBooks" class="hidden px-4 py-12 text-center">
+      <div class="text-5xl mb-4">📚</div>
+      <h3 class="text-white font-bold text-lg mb-2">No publications yet</h3>
+      <p class="text-gray-400 text-sm mb-5">Be the first to publish on NOVELIX</p>
+      <button onclick="showPage('publish')" class="btn-primary px-6 py-3 rounded-xl text-sm">Publish Now</button>
+    </div>
+  </div>
+
+  <!-- ── EXPLORE PAGE ── -->
+  <div id="page-explore" class="page">
+    <div class="px-4 pt-4 pb-2">
+      <h2 class="text-white font-black text-xl mb-3">Explore</h2>
+      <div class="relative mb-4">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
+        <input type="text" id="exploreSearch" placeholder="Search everything..." class="w-full pl-9 pr-4 py-3 text-sm" oninput="handleExploreSearch(this.value)">
+      </div>
+      <!-- Category filters -->
+      <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-2 mb-3">
+        <button onclick="filterExplore('all')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="all" style="background:rgba(139,92,246,0.3)">All</button>
+        <button onclick="filterExplore('novel')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="novel">Novels</button>
+        <button onclick="filterExplore('manga')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="manga">Manga</button>
+        <button onclick="filterExplore('manhwa')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="manhwa">Manhwa</button>
+        <button onclick="filterExplore('comic')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="comic">Comics</button>
+        <button onclick="filterExplore('educational')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="educational">Educational</button>
+        <button onclick="filterExplore('short_story')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="short_story">Short Stories</button>
+        <button onclick="filterExplore('series')" class="explore-filter flex-shrink-0 genre-tag cursor-pointer px-4 py-1.5" data-cat="series">Series</button>
+      </div>
+    </div>
+    <div id="exploreGrid" class="grid grid-cols-2 gap-3 px-4 pb-4"></div>
+    <div id="exploreEmpty" class="hidden px-4 py-12 text-center">
+      <div class="text-4xl mb-3">🔍</div>
+      <p class="text-gray-400 text-sm">No results found</p>
+    </div>
+    <div id="exploreLoading" class="hidden grid grid-cols-2 gap-3 px-4">
+      <div class="skeleton h-48 rounded-2xl"></div>
+      <div class="skeleton h-48 rounded-2xl"></div>
+      <div class="skeleton h-48 rounded-2xl"></div>
+      <div class="skeleton h-48 rounded-2xl"></div>
+    </div>
+  </div>
+
+  <!-- ── LIBRARY PAGE ── -->
+  <div id="page-library" class="page">
+    <div class="px-4 pt-4">
+      <h2 class="text-white font-black text-xl mb-4">My Library</h2>
+      <div id="libraryAuth" class="py-10 text-center hidden">
+        <div class="text-4xl mb-3">🔐</div>
+        <p class="text-gray-400 text-sm mb-4">Sign in to access your library</p>
+        <button onclick="openAuthModal()" class="btn-primary px-6 py-3 rounded-xl text-sm">Sign In</button>
+      </div>
+      <!-- Tabs -->
+      <div id="libraryContent" class="hidden">
+        <div class="flex gap-2 mb-4 overflow-x-auto hide-scrollbar">
+          <button onclick="switchLibTab('reading')" class="lib-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="reading" style="background:rgba(139,92,246,0.3)">📖 Reading</button>
+          <button onclick="switchLibTab('completed')" class="lib-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="completed">✅ Completed</button>
+          <button onclick="switchLibTab('bookmarked')" class="lib-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="bookmarked">🔖 Bookmarks</button>
+          <button onclick="switchLibTab('lists')" class="lib-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="lists">📚 Lists</button>
+        </div>
+        <div id="libraryGrid" class="space-y-3 pb-4"></div>
+        <div id="libraryEmpty" class="hidden py-10 text-center">
+          <div class="text-4xl mb-3">📚</div>
+          <p class="text-gray-400 text-sm">Nothing here yet</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PUBLISH PAGE ── -->
+  <div id="page-publish" class="page">
+    <div class="px-4 pt-4">
+      <h2 class="text-white font-black text-xl mb-1">Publish</h2>
+      <p class="text-gray-400 text-sm mb-5">Share your work with the world</p>
+      <div id="publishAuth" class="py-10 text-center hidden">
+        <div class="text-4xl mb-3">✍️</div>
+        <p class="text-gray-400 text-sm mb-4">Sign in to publish your work</p>
+        <button onclick="openAuthModal()" class="btn-primary px-6 py-3 rounded-xl text-sm">Sign In</button>
+      </div>
+      <form id="publishForm" class="hidden space-y-4 pb-6" onsubmit="submitPublish(event)">
+        <!-- Type selector -->
+        <div>
+          <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Content Type *</label>
+          <div class="grid grid-cols-4 gap-2">
+            <button type="button" onclick="selectType('book')" class="type-btn glass-card rounded-xl p-2.5 text-center border border-brand-primary/30" data-type="book">
+              <div class="text-xl">📗</div><div class="text-xs text-gray-300 mt-1">Book</div>
+            </button>
+            <button type="button" onclick="selectType('novel')" class="type-btn glass-card rounded-xl p-2.5 text-center" data-type="novel">
+              <div class="text-xl">📕</div><div class="text-xs text-gray-300 mt-1">Novel</div>
+            </button>
+            <button type="button" onclick="selectType('manga')" class="type-btn glass-card rounded-xl p-2.5 text-center" data-type="manga">
+              <div class="text-xl">📔</div><div class="text-xs text-gray-300 mt-1">Manga</div>
+            </button>
+            <button type="button" onclick="selectType('manhwa')" class="type-btn glass-card rounded-xl p-2.5 text-center" data-type="manhwa">
+              <div class="text-xl">🖼️</div><div class="text-xs text-gray-300 mt-1">Manhwa</div>
+            </button>
+            <button type="button" onclick="selectType('comic')" class="type-btn glass-card rounded-xl p-2.5 text-center" data-type="comic">
+              <div class="text-xl">💬</div><div class="text-xs text-gray-300 mt-1">Comic</div>
+            </button>
+            <button type="button" onclick="selectType('short_story')" class="type-btn glass-card rounded-xl p-2.5 text-center" data-type="short_story">
+              <div class="text-xl">📝</div><div class="text-xs text-gray-300 mt-1">Story</div>
+            </button>
+            <button type="button" onclick="selectType('series')" class="type-btn glass-card rounded-xl p-2.5 text-center" data-type="series">
+              <div class="text-xl">📚</div><div class="text-xs text-gray-300 mt-1">Series</div>
+            </button>
+            <button type="button" onclick="selectType('educational')" class="type-btn glass-card rounded-xl p-2.5 text-center" data-type="educational">
+              <div class="text-xl">🎓</div><div class="text-xs text-gray-300 mt-1">Edu</div>
+            </button>
+          </div>
+          <input type="hidden" id="pubType" value="book">
+        </div>
+
+        <!-- Cover -->
+        <div>
+          <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Cover Image *</label>
+          <div onclick="document.getElementById('coverFileInput').click()" class="glass-card rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer border-dashed border border-brand-primary/30 min-h-[120px]" id="coverDropzone">
+            <div id="coverPreview" class="hidden w-24 h-32 rounded-xl overflow-hidden mb-2"><img id="coverPreviewImg" class="w-full h-full object-cover"></div>
+            <div id="coverPlaceholder" class="text-center">
+              <div class="text-3xl mb-2">🖼️</div>
+              <p class="text-gray-400 text-xs">Tap to upload cover</p>
+              <p class="text-gray-600 text-xs mt-1">JPG, PNG, WebP — max 5MB</p>
+            </div>
+          </div>
+          <input type="file" id="coverFileInput" accept="image/*" class="hidden" onchange="previewCover(this)">
+          <div id="coverUploadStatus" class="text-xs mt-2 text-gray-400 hidden"></div>
+        </div>
+
+        <!-- Title & Description -->
+        <div>
+          <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Title *</label>
+          <input type="text" id="pubTitle" placeholder="Enter title..." class="w-full px-4 py-3 text-sm" required>
+        </div>
+        <div>
+          <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Description *</label>
+          <textarea id="pubDesc" rows="4" placeholder="Write a compelling description..." class="w-full px-4 py-3 text-sm resize-none" required></textarea>
+        </div>
+
+        <!-- Genres -->
+        <div>
+          <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Genres (select up to 5)</label>
+          <div class="flex flex-wrap gap-2" id="genreSelector">
+            <button type="button" onclick="toggleGenre(this,'Fantasy')" class="genre-tag cursor-pointer" data-genre="Fantasy">Fantasy</button>
+            <button type="button" onclick="toggleGenre(this,'Romance')" class="genre-tag cursor-pointer" data-genre="Romance">Romance</button>
+            <button type="button" onclick="toggleGenre(this,'Action')" class="genre-tag cursor-pointer" data-genre="Action">Action</button>
+            <button type="button" onclick="toggleGenre(this,'Mystery')" class="genre-tag cursor-pointer" data-genre="Mystery">Mystery</button>
+            <button type="button" onclick="toggleGenre(this,'Sci-Fi')" class="genre-tag cursor-pointer" data-genre="Sci-Fi">Sci-Fi</button>
+            <button type="button" onclick="toggleGenre(this,'Horror')" class="genre-tag cursor-pointer" data-genre="Horror">Horror</button>
+            <button type="button" onclick="toggleGenre(this,'Thriller')" class="genre-tag cursor-pointer" data-genre="Thriller">Thriller</button>
+            <button type="button" onclick="toggleGenre(this,'Comedy')" class="genre-tag cursor-pointer" data-genre="Comedy">Comedy</button>
+            <button type="button" onclick="toggleGenre(this,'Drama')" class="genre-tag cursor-pointer" data-genre="Drama">Drama</button>
+            <button type="button" onclick="toggleGenre(this,'Slice of Life')" class="genre-tag cursor-pointer" data-genre="Slice of Life">Slice of Life</button>
+            <button type="button" onclick="toggleGenre(this,'Adventure')" class="genre-tag cursor-pointer" data-genre="Adventure">Adventure</button>
+            <button type="button" onclick="toggleGenre(this,'Historical')" class="genre-tag cursor-pointer" data-genre="Historical">Historical</button>
+            <button type="button" onclick="toggleGenre(this,'Educational')" class="genre-tag cursor-pointer" data-genre="Educational">Educational</button>
+            <button type="button" onclick="toggleGenre(this,'Self-Help')" class="genre-tag cursor-pointer" data-genre="Self-Help">Self-Help</button>
+          </div>
+          <input type="hidden" id="pubGenres" value="[]">
+        </div>
+
+        <!-- Language Editions -->
+        <div>
+          <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Language Editions</label>
+          <div id="langEditions" class="space-y-3"></div>
+          <button type="button" onclick="addLangEdition()" class="mt-3 btn-ghost px-4 py-2 rounded-xl text-sm w-full">+ Add Language Edition</button>
+        </div>
+
+        <!-- Status & Visibility -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Status</label>
+            <select id="pubStatus" class="w-full px-3 py-3 text-sm">
+              <option value="ongoing">Ongoing</option>
+              <option value="completed">Completed</option>
+              <option value="hiatus">Hiatus</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2 block">Visibility</label>
+            <select id="pubVisibility" class="w-full px-3 py-3 text-sm">
+              <option value="public">Public</option>
+              <option value="unlisted">Unlisted</option>
+              <option value="private">Private</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Publish buttons -->
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="submitPublish(null,'draft')" class="flex-1 btn-ghost px-4 py-3.5 rounded-xl text-sm font-semibold">Save Draft</button>
+          <button type="submit" id="publishBtn" class="flex-2 btn-primary px-6 py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+            <span>🚀</span> Publish
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── PROFILE PAGE ── -->
+  <div id="page-profile" class="page">
+    <div id="profileAuthMsg" class="px-4 py-16 text-center hidden">
+      <div class="text-4xl mb-3">👤</div>
+      <p class="text-gray-400 text-sm mb-4">Sign in to view your profile</p>
+      <button onclick="openAuthModal()" class="btn-primary px-6 py-3 rounded-xl text-sm">Sign In</button>
+    </div>
+    <div id="profileContent" class="hidden">
+      <!-- Cover + Avatar -->
+      <div class="relative mb-16">
+        <div id="profileCoverBg" class="h-36 w-full" style="background:linear-gradient(135deg,#1b1b2c,#27273e)">
+          <img id="profileCoverImg" class="w-full h-full object-cover hidden">
+          <button onclick="document.getElementById('coverUploadInput').click()" class="absolute top-3 right-3 btn-ghost p-2 rounded-xl text-xs">📷 Cover</button>
+          <input type="file" id="coverUploadInput" accept="image/*" class="hidden" onchange="uploadCoverImage(this)">
+        </div>
+        <div class="absolute -bottom-12 left-4 flex items-end gap-3">
+          <div class="relative">
+            <div id="profileAvatarWrap" class="w-24 h-24 rounded-full border-4 border-brand-900 overflow-hidden" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">
+              <img id="profileAvatar" class="w-full h-full object-cover hidden">
+              <div id="profileAvatarInitial" class="w-full h-full flex items-center justify-center text-white font-black text-3xl"></div>
+            </div>
+            <button onclick="document.getElementById('avatarInput').click()" class="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-primary rounded-full flex items-center justify-center text-white text-xs border-2 border-brand-900">📷</button>
+            <input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="uploadAvatar(this)">
+          </div>
+        </div>
+      </div>
+      <!-- Profile Info -->
+      <div class="px-4">
+        <div class="flex items-start justify-between mb-1">
+          <div>
+            <h2 id="profileName" class="text-white font-black text-xl"></h2>
+            <p id="profileHandle" class="text-gray-500 text-sm"></p>
+          </div>
+          <button onclick="showEditProfile()" class="btn-ghost px-4 py-2 rounded-xl text-sm font-semibold">Edit</button>
+        </div>
+        <p id="profileBio" class="text-gray-400 text-sm mt-2 mb-3">No bio yet.</p>
+        <!-- Stats -->
+        <div class="flex gap-5 mb-4">
+          <div class="text-center"><div id="statBooks" class="text-white font-black text-lg">0</div><div class="text-gray-500 text-xs">Books</div></div>
+          <div class="text-center"><div id="statFollowers" class="text-white font-black text-lg">0</div><div class="text-gray-500 text-xs">Followers</div></div>
+          <div class="text-center"><div id="statFollowing" class="text-white font-black text-lg">0</div><div class="text-gray-500 text-xs">Following</div></div>
+          <div class="text-center"><div id="statViews" class="text-white font-black text-lg">0</div><div class="text-gray-500 text-xs">Views</div></div>
+        </div>
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-4 overflow-x-auto hide-scrollbar">
+          <button onclick="switchProfileTab('published')" class="prof-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="published" style="background:rgba(139,92,246,0.3)">Published</button>
+          <button onclick="switchProfileTab('analytics')" class="prof-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="analytics">Analytics</button>
+          <button onclick="switchProfileTab('drive')" class="prof-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="drive">Drive</button>
+          <button onclick="switchProfileTab('settings')" class="prof-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm font-semibold" data-tab="settings">Settings</button>
+        </div>
+        <!-- Published tab -->
+        <div id="profTabPublished" class="space-y-3 pb-4"></div>
+        <!-- Analytics tab -->
+        <div id="profTabAnalytics" class="pb-4 hidden">
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="glass-card rounded-2xl p-4 text-center">
+              <div id="anaViews" class="text-white font-black text-2xl">0</div>
+              <div class="text-gray-400 text-xs mt-1">Total Views</div>
+            </div>
+            <div class="glass-card rounded-2xl p-4 text-center">
+              <div id="anaReaders" class="text-white font-black text-2xl">0</div>
+              <div class="text-gray-400 text-xs mt-1">Readers</div>
+            </div>
+            <div class="glass-card rounded-2xl p-4 text-center">
+              <div id="anaRating" class="text-white font-black text-2xl">—</div>
+              <div class="text-gray-400 text-xs mt-1">Avg Rating</div>
+            </div>
+            <div class="glass-card rounded-2xl p-4 text-center">
+              <div id="anaPublications" class="text-white font-black text-2xl">0</div>
+              <div class="text-gray-400 text-xs mt-1">Publications</div>
+            </div>
+          </div>
+          <p class="text-gray-500 text-xs text-center">Analytics update in real-time from database</p>
+        </div>
+        <!-- Drive tab -->
+        <div id="profTabDrive" class="pb-4 hidden">
+          <div id="driveAccountsList" class="space-y-3 mb-4"></div>
+          <button onclick="connectGoogleDrive()" class="btn-ghost px-4 py-3 rounded-xl text-sm w-full flex items-center justify-center gap-2">
+            <span>🔗</span> Connect Google Drive Account
+          </button>
+          <p class="text-gray-500 text-xs text-center mt-2">Google Drive OAuth requires server-side credentials configured in your environment.</p>
+        </div>
+        <!-- Settings tab -->
+        <div id="profTabSettings" class="pb-4 hidden">
+          <div class="space-y-3">
+            <div class="glass-card rounded-2xl p-4">
+              <h3 class="text-white font-semibold text-sm mb-3">Account Settings</h3>
+              <div class="space-y-3">
+                <div>
+                  <label class="text-gray-400 text-xs mb-1 block">Display Name</label>
+                  <input type="text" id="settingsName" class="w-full px-3 py-2.5 text-sm">
+                </div>
+                <div>
+                  <label class="text-gray-400 text-xs mb-1 block">Bio</label>
+                  <textarea id="settingsBio" rows="3" class="w-full px-3 py-2.5 text-sm resize-none"></textarea>
+                </div>
+                <button onclick="saveProfileSettings()" class="btn-primary px-4 py-2.5 rounded-xl text-sm w-full">Save Changes</button>
+              </div>
+            </div>
+            <div class="glass-card rounded-2xl p-4">
+              <h3 class="text-white font-semibold text-sm mb-3">Notifications</h3>
+              <div class="space-y-2">
+                <label class="flex items-center justify-between">
+                  <span class="text-gray-300 text-sm">New followers</span>
+                  <input type="checkbox" id="notifFollowers" checked class="w-5 h-5" style="background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);border-radius:6px">
+                </label>
+                <label class="flex items-center justify-between">
+                  <span class="text-gray-300 text-sm">New comments</span>
+                  <input type="checkbox" id="notifComments" checked class="w-5 h-5" style="background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);border-radius:6px">
+                </label>
+              </div>
+            </div>
+            <button onclick="signOut()" class="w-full py-3 rounded-xl text-sm font-semibold" style="background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.25);color:#f87171">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ════════════════════════════════════════════════════════
+     BOTTOM NAVIGATION
+═══════════════════════════════════════════════════════════ -->
+<nav class="glass-nav fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around safe-bottom" style="padding-top:12px;height:calc(76px + var(--sab))">
+  <button onclick="showPage('home')" class="nav-item active flex flex-col items-center gap-0.5 px-4" id="nav-home">
+    <span class="nav-icon text-xl text-gray-400">🏠</span>
+    <span class="nav-label text-[10px] text-gray-500 font-medium">Home</span>
+  </button>
+  <button onclick="showPage('explore')" class="nav-item flex flex-col items-center gap-0.5 px-4" id="nav-explore">
+    <span class="nav-icon text-xl text-gray-400">🔭</span>
+    <span class="nav-label text-[10px] text-gray-500 font-medium">Explore</span>
+  </button>
+  <button onclick="showPage('publish')" class="nav-item flex flex-col items-center gap-0.5" id="nav-publish">
+    <div class="w-12 h-12 rounded-2xl flex items-center justify-center -mt-5" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);box-shadow:0 4px 20px rgba(139,92,246,0.5)">
+      <span class="text-white text-xl font-bold">+</span>
+    </div>
+    <span class="nav-label text-[10px] text-gray-500 font-medium">Publish</span>
+  </button>
+  <button onclick="showPage('library')" class="nav-item flex flex-col items-center gap-0.5 px-4" id="nav-library">
+    <span class="nav-icon text-xl text-gray-400">📚</span>
+    <span class="nav-label text-[10px] text-gray-500 font-medium">Library</span>
+  </button>
+  <button onclick="showPage('profile')" class="nav-item flex flex-col items-center gap-0.5 px-4" id="nav-profile">
+    <span class="nav-icon text-xl text-gray-400">👤</span>
+    <span class="nav-label text-[10px] text-gray-500 font-medium">Profile</span>
+  </button>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════
+     AUTH MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="authModal" class="modal-overlay" onclick="if(event.target===this)closeAuthModal()">
+  <div class="modal-sheet glass-modal p-6 safe-bottom">
+    <!-- Tabs -->
+    <div class="flex gap-1 mb-6 bg-brand-800 rounded-xl p-1">
+      <button onclick="switchAuthTab('login')" id="authTabLogin" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white">Sign In</button>
+      <button onclick="switchAuthTab('register')" id="authTabRegister" class="flex-1 py-2 rounded-lg text-sm font-semibold text-gray-400 transition-all">Sign Up</button>
+    </div>
+
+    <!-- Logo -->
+    <div class="text-center mb-5">
+      <div class="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">
+        <span class="text-white font-black text-2xl">N</span>
+      </div>
+      <h3 id="authTitle" class="text-white font-black text-lg">Welcome back</h3>
+      <p id="authSubtitle" class="text-gray-400 text-sm mt-1">Sign in to continue reading</p>
+    </div>
+
+    <!-- Google OAuth -->
+    <button onclick="loginGoogle()" class="w-full glass-card rounded-xl py-3.5 flex items-center justify-center gap-3 mb-4 active:scale-97 transition-transform">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+      <span class="text-white text-sm font-semibold">Continue with Google</span>
+    </button>
+
+    <div class="flex items-center gap-3 mb-4">
+      <div class="flex-1 h-px bg-white/10"></div>
+      <span class="text-gray-500 text-xs">or email</span>
+      <div class="flex-1 h-px bg-white/10"></div>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm" class="space-y-3">
+      <input type="email" id="loginEmail" placeholder="Email address" class="w-full px-4 py-3 text-sm">
+      <div class="relative">
+        <input type="password" id="loginPassword" placeholder="Password" class="w-full px-4 py-3 pr-10 text-sm">
+        <button type="button" onclick="togglePwdVis('loginPassword')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">👁</button>
+      </div>
+      <button type="button" onclick="showForgotPassword()" class="text-brand-primary text-xs font-semibold">Forgot password?</button>
+      <button onclick="loginEmail()" id="loginBtn" class="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+        Sign In
+      </button>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" class="space-y-3 hidden">
+      <input type="text" id="regName" placeholder="Display name" class="w-full px-4 py-3 text-sm">
+      <input type="email" id="regEmail" placeholder="Email address" class="w-full px-4 py-3 text-sm">
+      <div class="relative">
+        <input type="password" id="regPassword" placeholder="Password (min 8 chars)" class="w-full px-4 py-3 pr-10 text-sm">
+        <button type="button" onclick="togglePwdVis('regPassword')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">👁</button>
+      </div>
+      <button onclick="registerEmail()" id="registerBtn" class="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold">Create Account</button>
+      <p class="text-gray-500 text-xs text-center">By signing up, you agree to our Terms & Privacy Policy</p>
+    </div>
+
+    <!-- Forgot Password Form -->
+    <div id="forgotForm" class="space-y-3 hidden">
+      <p class="text-gray-400 text-sm text-center">Enter your email to receive a reset link</p>
+      <input type="email" id="forgotEmail" placeholder="Email address" class="w-full px-4 py-3 text-sm">
+      <button onclick="sendPasswordReset()" id="resetBtn" class="btn-primary w-full py-3.5 rounded-xl text-sm font-semibold">Send Reset Link</button>
+      <button onclick="switchAuthTab('login')" class="text-gray-400 text-xs w-full text-center">← Back to Sign In</button>
+    </div>
+
+    <div class="mt-4 text-center">
+      <p class="text-gray-500 text-xs" id="authSwitch">
+        Don't have an account? <button onclick="switchAuthTab('register')" class="text-brand-primary font-semibold">Sign Up</button>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     BOOK DETAIL MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="bookDetailModal" class="modal-overlay" onclick="if(event.target===this)closeBookDetail()">
+  <div class="modal-sheet glass-modal safe-bottom" style="max-height:88vh">
+    <div class="relative">
+      <!-- Cover header -->
+      <div id="bookDetailCover" class="h-48 rounded-t-2xl overflow-hidden relative" style="background:linear-gradient(135deg,#1b1b2c,#27273e)">
+        <img id="bookDetailCoverImg" class="w-full h-full object-cover hidden">
+        <div class="absolute inset-0" style="background:linear-gradient(to top,rgba(10,10,15,0.95) 0%,transparent 60%)"></div>
+        <button onclick="closeBookDetail()" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">✕</button>
+      </div>
+      <div class="px-5 pt-1 pb-5">
+        <span id="bookDetailType" class="genre-tag text-xs mb-2 inline-block"></span>
+        <h3 id="bookDetailTitle" class="text-white font-black text-xl mb-1"></h3>
+        <p id="bookDetailAuthor" class="text-brand-primary text-sm font-semibold mb-3"></p>
+        <!-- Genres -->
+        <div id="bookDetailGenres" class="flex flex-wrap gap-1.5 mb-3"></div>
+        <!-- Stats -->
+        <div class="flex items-center gap-4 mb-3">
+          <span id="bookDetailRating" class="text-amber-400 text-sm font-bold">⭐ —</span>
+          <span id="bookDetailViews" class="text-gray-400 text-sm">👁 0</span>
+          <span id="bookDetailStatus" class="genre-tag text-xs"></span>
+        </div>
+        <!-- Description -->
+        <p id="bookDetailDesc" class="text-gray-300 text-sm leading-relaxed mb-4"></p>
+        <!-- Language editions -->
+        <div id="bookDetailLangs" class="mb-4"></div>
+        <!-- Action buttons -->
+        <div class="flex gap-3 mb-4">
+          <button id="readBookBtn" onclick="startReading()" class="btn-primary flex-1 py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+            📖 Read Now
+          </button>
+          <button onclick="toggleBookmark()" id="bookmarkBtn" class="btn-ghost w-12 h-12 rounded-xl flex items-center justify-center text-xl">🔖</button>
+          <button onclick="toggleLike()" id="likeBtn" class="btn-ghost w-12 h-12 rounded-xl flex items-center justify-center text-xl">♡</button>
+        </div>
+        <!-- Reviews section -->
+        <div>
+          <h4 class="text-white font-bold text-sm mb-3">Reviews & Discussion</h4>
+          <div id="bookDetailReviews" class="space-y-3 mb-3"></div>
+          <!-- Write review -->
+          <div id="writeReviewArea" class="glass-card rounded-xl p-3">
+            <p id="reviewLoginPrompt" class="text-gray-500 text-xs text-center">Sign in to write a review</p>
+            <div id="reviewForm" class="hidden space-y-2">
+              <div class="flex gap-1 justify-center" id="reviewStars">
+                <button type="button" class="star-btn" onclick="setReviewRating(1)" data-star="1">★</button>
+                <button type="button" class="star-btn" onclick="setReviewRating(2)" data-star="2">★</button>
+                <button type="button" class="star-btn" onclick="setReviewRating(3)" data-star="3">★</button>
+                <button type="button" class="star-btn" onclick="setReviewRating(4)" data-star="4">★</button>
+                <button type="button" class="star-btn" onclick="setReviewRating(5)" data-star="5">★</button>
+              </div>
+              <textarea id="reviewText" rows="2" placeholder="Share your thoughts..." class="w-full px-3 py-2 text-xs resize-none"></textarea>
+              <button onclick="submitReview()" class="btn-primary px-4 py-2 rounded-xl text-xs w-full">Post Review</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     PDF READER (FULLSCREEN)
+═══════════════════════════════════════════════════════════ -->
+<div id="pdfReader" class="reader-fullscreen hidden" style="z-index:3000">
+  <div class="glass-header fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-4 safe-top" style="height:calc(52px + var(--sat));padding-top:calc(8px + var(--sat))">
+    <button onclick="closePdfReader()" class="btn-ghost w-9 h-9 rounded-xl flex items-center justify-center text-sm">✕</button>
+    <div class="text-center flex-1 mx-2">
+      <p id="pdfReaderTitle" class="text-white font-bold text-sm truncate"></p>
+      <p id="pdfReaderPage" class="text-gray-400 text-xs">Page 1 / 1</p>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="pdfZoomOut()" class="btn-ghost w-9 h-9 rounded-xl flex items-center justify-center text-sm">🔍-</button>
+      <button onclick="pdfZoomIn()" class="btn-ghost w-9 h-9 rounded-xl flex items-center justify-center text-sm">🔍+</button>
+    </div>
+  </div>
+  <div id="pdfViewport" class="overflow-auto" style="padding-top:calc(52px + var(--sat));padding-bottom:80px;background:#111">
+    <div id="pdfCanvasWrap" class="flex items-center justify-center min-h-full p-2">
+      <canvas id="pdfCanvas"></canvas>
+    </div>
+    <div id="pdfLoading" class="flex flex-col items-center justify-center py-16 gap-3">
+      <div class="w-8 h-8 rounded-full border-2 border-brand-primary border-t-transparent animate-spin"></div>
+      <p class="text-gray-400 text-sm">Loading PDF...</p>
+    </div>
+  </div>
+  <!-- Reader controls -->
+  <div class="glass-nav fixed bottom-0 left-0 right-0 z-10 flex items-center justify-between px-6 safe-bottom" style="height:calc(64px + var(--sab));padding-top:12px">
+    <button onclick="pdfPrevPage()" id="pdfPrev" class="btn-ghost w-10 h-10 rounded-xl flex items-center justify-center text-lg">‹</button>
+    <div class="flex-1 mx-4">
+      <input type="range" id="pdfProgress" min="1" max="1" value="1" class="w-full" oninput="pdfGoToPage(parseInt(this.value))" style="accent-color:#8b5cf6">
+    </div>
+    <button onclick="pdfNextPage()" id="pdfNext" class="btn-ghost w-10 h-10 rounded-xl flex items-center justify-center text-lg">›</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MANHWA READER (FULLSCREEN)
+═══════════════════════════════════════════════════════════ -->
+<div id="manhwaReader" class="reader-fullscreen hidden" style="z-index:3000;overflow-y:auto">
+  <div class="glass-header fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-4 safe-top" style="height:calc(52px + var(--sat));padding-top:calc(8px + var(--sat))">
+    <button onclick="closeManhwaReader()" class="btn-ghost w-9 h-9 rounded-xl flex items-center justify-center text-sm">✕</button>
+    <p id="manhwaTitle" class="text-white font-bold text-sm flex-1 text-center truncate mx-2"></p>
+    <button onclick="toggleManhwaUI()" class="btn-ghost w-9 h-9 rounded-xl flex items-center justify-center text-sm">☰</button>
+  </div>
+  <div id="manhwaPages" style="padding-top:calc(52px + var(--sat));background:#000"></div>
+  <div id="manhwaNav" class="glass-nav fixed bottom-0 left-0 right-0 z-10 flex items-center justify-between px-6 safe-bottom" style="height:calc(64px + var(--sab));padding-top:12px">
+    <button onclick="prevManhwaChapter()" class="btn-ghost px-4 py-2 rounded-xl text-sm">◀ Prev</button>
+    <span id="manhwaChapterLabel" class="text-white text-sm font-semibold">Chapter 1</span>
+    <button onclick="nextManhwaChapter()" class="btn-ghost px-4 py-2 rounded-xl text-sm">Next ▶</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     DEVELOPER TERMINAL (5-click secret)
+═══════════════════════════════════════════════════════════ -->
+<div id="devTerminal" class="reader-fullscreen hidden terminal-screen" style="z-index:4000;overflow-y:auto;padding:16px">
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-2">
+      <div class="w-3 h-3 rounded-full bg-red-500"></div>
+      <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+      <div class="w-3 h-3 rounded-full bg-green-500"></div>
+      <span class="text-green-400 ml-2 font-bold text-xs">NOVELIX DEVELOPER TERMINAL v2.1</span>
+    </div>
+    <button onclick="closeTerminal()" class="text-green-400 hover:text-green-200 text-xs">[EXIT]</button>
+  </div>
+  <div id="terminalOutput" class="text-xs leading-relaxed mb-4"></div>
+  <div class="flex items-center gap-2">
+    <span class="text-green-500">novelix@system:~$</span>
+    <input type="text" id="terminalInput" class="flex-1 bg-transparent border-none outline-none text-green-400 text-xs font-mono" placeholder="type 'help'" style="border:none!important;box-shadow:none!important" onkeydown="handleTerminalInput(event)">
+    <span class="terminal-cursor text-green-400 text-xs"></span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     NOTIFICATIONS PANEL
+═══════════════════════════════════════════════════════════ -->
+<div id="notifPanel" class="modal-overlay" onclick="if(event.target===this)closeNotifPanel()">
+  <div class="modal-sheet glass-modal p-5 safe-bottom">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-white font-bold text-base">Notifications</h3>
+      <button onclick="markAllRead()" class="text-brand-primary text-xs font-semibold">Mark all read</button>
+    </div>
+    <div id="notifList" class="space-y-2 max-h-80 overflow-y-auto"></div>
+    <div id="notifEmpty" class="py-8 text-center hidden">
+      <div class="text-3xl mb-2">🔔</div>
+      <p class="text-gray-500 text-sm">No notifications yet</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     ADMIN DASHBOARD (role-gated)
+═══════════════════════════════════════════════════════════ -->
+<div id="adminPanel" class="reader-fullscreen hidden" style="z-index:2500">
+  <div class="glass-header fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-4 safe-top" style="height:calc(52px + var(--sat));padding-top:calc(8px + var(--sat))">
+    <button onclick="closeAdmin()" class="btn-ghost w-9 h-9 rounded-xl flex items-center justify-center text-sm">✕</button>
+    <h2 class="text-white font-bold text-sm">Admin Dashboard</h2>
+    <div class="w-9"></div>
+  </div>
+  <div style="padding-top:calc(52px + var(--sat));padding-bottom:24px;overflow-y:auto;height:100%">
+    <div class="px-4 pt-4">
+      <div class="flex gap-2 overflow-x-auto hide-scrollbar mb-4">
+        <button onclick="switchAdminTab('users')" class="admin-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm" data-tab="users" style="background:rgba(139,92,246,0.3)">Users</button>
+        <button onclick="switchAdminTab('books')" class="admin-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm" data-tab="books">Books</button>
+        <button onclick="switchAdminTab('reports')" class="admin-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm" data-tab="reports">Reports</button>
+        <button onclick="switchAdminTab('logs')" class="admin-tab flex-shrink-0 genre-tag cursor-pointer px-4 py-2 text-sm" data-tab="logs">Logs</button>
+      </div>
+      <div id="adminContent" class="space-y-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MAIN APPLICATION SCRIPT
+═══════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ────────────────────────────────────────────────────────
+// CONSTANTS & CONFIG
+// ────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://gzwpfvhmjweeydiwdsga.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_APwu-OfPQmtnj-f-pwxfZw_OxiwM8A1';
+const IMGBB_KEY    = 'a9985ccf572a0e05bce242e27cf8be33';
+
+// ────────────────────────────────────────────────────────
+// SUPABASE INIT
+// ────────────────────────────────────────────────────────
+let supabase;
+try {
+  const { createClient } = window.supabase;
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: 'novelix-auth-v2'
+    },
+    realtime: { params: { eventsPerSecond: 10 } }
+  });
+} catch(e) {
+  console.error('Supabase init failed:', e);
+}
+
+// ────────────────────────────────────────────────────────
+// APP STATE
+// ────────────────────────────────────────────────────────
+const STATE = {
+  user: null,
+  profile: null,
+  session: null,
+  currentPage: 'home',
+  currentBook: null,
+  currentLangEdition: null,
+  pdfDoc: null,
+  pdfPage: 1,
+  pdfScale: 1.5,
+  pdfRendering: false,
+  terminalClickCount: 0,
+  terminalLastClick: 0,
+  selectedGenres: [],
+  publishType: 'book',
+  langEditions: [],
+  exploreCategory: 'all',
+  libraryTab: 'reading',
+  profileTab: 'published',
+  adminTab: 'users',
+  allBooks: [],
+  realtimeChannels: [],
+  reviewRating: 0,
+  bookmarkActive: false,
+  likeActive: false,
+  notifCount: 0,
+  driveAccounts: [],
+  isAdmin: false,
+  offlineCache: {},
+};
+
+// ────────────────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  setupNetworkListener();
+  setupLogoClickCounter();
+  setupPDFWorker();
+  addFirstLangEdition();
+
+  if (!supabase) {
+    showToast('⚠️ Connection unavailable. Check network.', 'error');
+    renderBooksEmpty();
+    return;
+  }
+
+  // Auth state listener
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    STATE.session = session;
+    STATE.user = session?.user ?? null;
+    await onAuthChange(event, session);
+  });
+
+  // Get initial session
+  const { data: { session } } = await supabase.auth.getSession();
+  STATE.session = session;
+  STATE.user = session?.user ?? null;
+  await onAuthChange('INITIAL', session);
+
+  // Load home data
+  await loadHomeData();
+
+  // Subscribe to realtime
+  setupRealtime();
+});
+
+// ────────────────────────────────────────────────────────
+// AUTH LIFECYCLE
+// ────────────────────────────────────────────────────────
+async function onAuthChange(event, session) {
+  const user = session?.user ?? null;
+  STATE.user = user;
+
+  if (user) {
+    // Fetch profile
+    await fetchProfile(user.id);
+    updateHeaderForUser();
+    checkAdminRole();
+    loadNotifications();
+    showElement('notifBtn');
+    hideElement('headerAuthBtn');
+    showElement('headerAvatarBtn');
+    hideElement('heroCtaBtn');
+
+    // Update publish/library/profile pages
+    renderPublishPage();
+    if (STATE.currentPage === 'library') loadLibraryData();
+    if (STATE.currentPage === 'profile') renderProfilePage();
+  } else {
+    STATE.profile = null;
+    STATE.isAdmin = false;
+    updateHeaderForGuest();
+    hideElement('notifBtn');
+    showElement('headerAuthBtn');
+    hideElement('headerAvatarBtn');
+    showElement('heroCtaBtn');
+    renderPublishPage();
+  }
+}
+
+async function fetchProfile(userId) {
+  if (!userId) return;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (data) {
+    STATE.profile = data;
+  } else if (error?.code === 'PGRST116') {
+    // Profile doesn't exist — create it
+    const name = STATE.user?.user_metadata?.full_name || STATE.user?.email?.split('@')[0] || 'User';
+    const { data: created } = await supabase
+      .from('profiles')
+      .insert({ id: userId, display_name: name, email: STATE.user.email })
+      .select()
+      .single();
+    STATE.profile = created;
+  }
+}
+
+async function checkAdminRole() {
+  if (!STATE.user) return;
+  const { data } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', STATE.user.id)
+    .eq('role', 'admin')
+    .single();
+  STATE.isAdmin = !!data;
+}
+
+function updateHeaderForUser() {
+  const initial = (STATE.profile?.display_name || STATE.user?.email || 'U')[0].toUpperCase();
+  const avatarEl = document.getElementById('headerAvatarImg');
+  if (avatarEl) {
+    if (STATE.profile?.avatar_url) {
+      avatarEl.style.backgroundImage = `url(${STATE.profile.avatar_url})`;
+      avatarEl.style.backgroundSize = 'cover';
+      avatarEl.textContent = '';
+    } else {
+      avatarEl.textContent = initial;
+    }
+  }
+}
+
+function updateHeaderForGuest() {
+  const avatarEl = document.getElementById('headerAvatarImg');
+  if (avatarEl) avatarEl.textContent = '';
+}
+
+// ────────────────────────────────────────────────────────
+// AUTH ACTIONS
+// ────────────────────────────────────────────────────────
+async function loginEmail() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!email || !password) { showToast('Enter email and password', 'error'); return; }
+
+  setLoading('loginBtn', true, 'Signing in...');
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  setLoading('loginBtn', false, 'Sign In');
+
+  if (error) {
+    showToast(`❌ ${error.message}`, 'error');
+  } else {
+    showToast('✅ Welcome back!', 'success');
+    closeAuthModal();
+  }
+}
+
+async function registerEmail() {
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+
+  if (!name) { showToast('Enter your name', 'error'); return; }
+  if (!email) { showToast('Enter your email', 'error'); return; }
+  if (password.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
+
+  setLoading('registerBtn', true, 'Creating account...');
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { data: { full_name: name } }
+  });
+  setLoading('registerBtn', false, 'Create Account');
+
+  if (error) {
+    showToast(`❌ ${error.message}`, 'error');
+  } else if (data.user && !data.session) {
+    showToast('📧 Check your email to confirm your account', 'info');
+    closeAuthModal();
+  } else {
+    showToast('✅ Account created! Welcome to NOVELIX', 'success');
+    closeAuthModal();
+  }
+}
+
+async function loginGoogle() {
+  if (!supabase) { showToast('Authentication unavailable', 'error'); return; }
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.href,
+      queryParams: { access_type: 'offline', prompt: 'consent' }
+    }
+  });
+  if (error) showToast(`❌ ${error.message}`, 'error');
+}
+
+async function sendPasswordReset() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  if (!email) { showToast('Enter your email', 'error'); return; }
+  setLoading('resetBtn', true, 'Sending...');
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href + '?reset=true'
+  });
+  setLoading('resetBtn', false, 'Send Reset Link');
+  if (error) showToast(`❌ ${error.message}`, 'error');
+  else { showToast('📧 Password reset email sent', 'success'); closeAuthModal(); }
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  STATE.user = null; STATE.profile = null; STATE.session = null; STATE.isAdmin = false;
+  showToast('👋 Signed out', 'info');
+  showPage('home');
+}
+
+// ────────────────────────────────────────────────────────
+// REALTIME SUBSCRIPTIONS
+// ────────────────────────────────────────────────────────
+function setupRealtime() {
+  if (!supabase) return;
+
+  // Books channel
+  const booksChannel = supabase
+    .channel('public-books')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'books' }, async (payload) => {
+      await handleBooksRealtime(payload);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        showElement('realtimeStatus');
+      }
+    });
+
+  // Notifications channel (per user)
+  let notifChannel = null;
+  if (STATE.user) {
+    notifChannel = supabase
+      .channel(`user-notifs-${STATE.user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${STATE.user.id}`
+      }, (payload) => {
+        handleNewNotification(payload.new);
+      })
+      .subscribe();
+  }
+
+  // Reviews channel
+  const reviewsChannel = supabase
+    .channel('public-reviews')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reviews' }, (payload) => {
+      if (STATE.currentBook && payload.new.book_id === STATE.currentBook.id) {
+        appendReview(payload.new);
+      }
+    })
+    .subscribe();
+
+  STATE.realtimeChannels = [booksChannel, reviewsChannel];
+  if (notifChannel) STATE.realtimeChannels.push(notifChannel);
+}
+
+function cleanupRealtime() {
+  STATE.realtimeChannels.forEach(ch => {
+    if (ch) supabase.removeChannel(ch).catch(() => {});
+  });
+  STATE.realtimeChannels = [];
+}
+
+async function handleBooksRealtime(payload) {
+  const { eventType, new: newBook, old } = payload;
+  if (eventType === 'INSERT') {
+    // Fetch full book with join
+    const { data } = await supabase
+      .from('books')
+      .select('*, profiles(display_name, avatar_url), book_languages(*)')
+      .eq('id', newBook.id)
+      .single();
+    if (data && data.visibility === 'public') {
+      STATE.allBooks.unshift(data);
+      showToast(`📚 New: "${data.title}" just published!`, 'info');
+      renderHomeBooks();
+      if (STATE.currentPage === 'explore') renderExploreBooks();
+    }
+  } else if (eventType === 'UPDATE') {
+    const idx = STATE.allBooks.findIndex(b => b.id === newBook.id);
+    if (idx !== -1) {
+      const { data } = await supabase
+        .from('books')
+        .select('*, profiles(display_name, avatar_url), book_languages(*)')
+        .eq('id', newBook.id)
+        .single();
+      if (data) STATE.allBooks[idx] = data;
+    }
+    renderHomeBooks();
+    if (STATE.currentPage === 'explore') renderExploreBooks();
+  } else if (eventType === 'DELETE') {
+    STATE.allBooks = STATE.allBooks.filter(b => b.id !== old.id);
+    renderHomeBooks();
+    if (STATE.currentPage === 'explore') renderExploreBooks();
+  }
+}
+
+function handleNewNotification(notif) {
+  STATE.notifCount++;
+  updateNotifBadge();
+  showToast(`🔔 ${notif.message || 'New notification'}`, 'info');
+}
+
+// ────────────────────────────────────────────────────────
+// DATA LOADING
+// ────────────────────────────────────────────────────────
+async function loadHomeData() {
+  if (!supabase) { renderBooksEmpty(); return; }
+  showSkeletons();
+
+  const { data: books, error } = await supabase
+    .from('books')
+    .select('*, profiles(display_name, avatar_url), book_languages(*)')
+    .eq('visibility', 'public')
+    .neq('publish_status', 'draft')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  hideSkeletons();
+
+  if (error) {
+    console.error('Load books error:', error);
+    renderBooksEmpty();
+    return;
+  }
+
+  STATE.allBooks = books || [];
+  renderHomeBooks();
+}
+
+function renderHomeBooks() {
+  const books = STATE.allBooks;
+
+  if (!books || books.length === 0) {
+    showElement('noBooks');
+    hideElement('featuredSection');
+    hideElement('trendingSection');
+    document.getElementById('recentBooks').innerHTML = '';
+    return;
+  }
+
+  hideElement('noBooks');
+  showElement('featuredSection');
+  showElement('trendingSection');
+
+  // Featured (top 6 by views)
+  const featured = [...books].sort((a,b) => (b.view_count||0) - (a.view_count||0)).slice(0,6);
+  document.getElementById('featuredBooks').innerHTML = featured.map(b => renderFeaturedCard(b)).join('');
+
+  // Trending
+  renderTrendingBooks('all');
+
+  // Recent (latest 8)
+  const recent = books.slice(0, 8);
+  document.getElementById('recentBooks').innerHTML = recent.map(b => renderListCard(b)).join('');
+}
+
+function renderFeaturedCard(book) {
+  const cover = book.cover_url ? `<img src="${escHtml(book.cover_url)}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-3xl" style="background:${randomGradient(book.id)}">📚</div>`;
+  const author = book.profiles?.display_name || 'Unknown';
+  const rating = book.avg_rating ? `⭐ ${parseFloat(book.avg_rating).toFixed(1)}` : '⭐ New';
+  return `<div onclick="openBookDetail('${escHtml(book.id)}')" class="flex-shrink-0 w-36 book-card-hover cursor-pointer glass-card rounded-2xl overflow-hidden">
+    <div class="h-48 relative overflow-hidden">${cover}</div>
+    <div class="p-2.5">
+      <p class="text-white font-bold text-xs truncate">${escHtml(book.title)}</p>
+      <p class="text-gray-400 text-[10px] truncate">${escHtml(author)}</p>
+      <p class="text-amber-400 text-[10px] mt-1">${rating}</p>
+    </div>
+  </div>`;
+}
+
+function renderTrendingBooks(filter) {
+  let books = STATE.allBooks;
+  if (filter !== 'all') books = books.filter(b => b.content_type === filter);
+  books = books.slice(0, 8);
+  if (!books.length) { document.getElementById('trendingBooks').innerHTML = `<div class="col-span-2 text-center py-6 text-gray-500 text-sm">No ${filter} content yet</div>`; return; }
+  document.getElementById('trendingBooks').innerHTML = books.map(b => renderGridCard(b)).join('');
+}
+
+function renderGridCard(book) {
+  const cover = book.cover_url ? `<img src="${escHtml(book.cover_url)}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-4xl" style="background:${randomGradient(book.id)}">📚</div>`;
+  const author = book.profiles?.display_name || 'Unknown';
+  const rating = book.avg_rating ? `⭐ ${parseFloat(book.avg_rating).toFixed(1)}` : '';
+  const views = book.view_count ? `👁 ${fmtNumber(book.view_count)}` : '';
+  const type = book.content_type || 'book';
+  return `<div onclick="openBookDetail('${escHtml(book.id)}')" class="book-card-hover cursor-pointer glass-card rounded-2xl overflow-hidden">
+    <div class="relative" style="aspect-ratio:2/3">${cover}
+      <div class="absolute top-2 left-2"><span class="genre-tag text-[9px]">${escHtml(typeLabel(type))}</span></div>
+    </div>
+    <div class="p-3">
+      <p class="text-white font-bold text-xs truncate mb-0.5">${escHtml(book.title)}</p>
+      <p class="text-gray-400 text-[10px] truncate mb-1">${escHtml(author)}</p>
+      <div class="flex items-center gap-2">
+        ${rating ? `<span class="text-amber-400 text-[10px]">${rating}</span>` : ''}
+        ${views ? `<span class="text-gray-500 text-[10px]">${views}</span>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderListCard(book) {
+  const cover = book.cover_url ? `<img src="${escHtml(book.cover_url)}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-2xl" style="background:${randomGradient(book.id)}">📚</div>`;
+  const author = book.profiles?.display_name || 'Unknown';
+  const genres = (book.genres || []).slice(0,2).map(g => `<span class="genre-tag text-[9px]">${escHtml(g)}</span>`).join('');
+  const rating = book.avg_rating ? `⭐ ${parseFloat(book.avg_rating).toFixed(1)}` : '⭐ New';
+  const views = book.view_count ? `👁 ${fmtNumber(book.view_count)}` : '👁 0';
+  return `<div onclick="openBookDetail('${escHtml(book.id)}')" class="book-card-hover cursor-pointer glass-card rounded-2xl p-3 flex gap-3">
+    <div class="w-16 h-22 rounded-xl overflow-hidden flex-shrink-0" style="height:88px">${cover}</div>
+    <div class="flex-1 min-w-0">
+      <p class="text-white font-bold text-sm truncate mb-0.5">${escHtml(book.title)}</p>
+      <p class="text-gray-400 text-xs truncate mb-1">${escHtml(author)}</p>
+      <div class="flex gap-1 flex-wrap mb-2">${genres}</div>
+      <div class="flex items-center gap-3">
+        <span class="text-amber-400 text-xs">${rating}</span>
+        <span class="text-gray-500 text-xs">${views}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderBooksEmpty() {
+  showElement('noBooks');
+  hideElement('featuredSection');
+  hideElement('trendingSection');
+  document.getElementById('recentBooks').innerHTML = '';
+}
+
+// ────────────────────────────────────────────────────────
+// EXPLORE
+// ────────────────────────────────────────────────────────
+function renderExploreBooks(books) {
+  const grid = document.getElementById('exploreGrid');
+  const empty = document.getElementById('exploreEmpty');
+  const src = books !== undefined ? books : STATE.allBooks.filter(b =>
+    STATE.exploreCategory === 'all' || b.content_type === STATE.exploreCategory
+  );
+  if (!src.length) { grid.innerHTML = ''; showElement('exploreEmpty'); return; }
+  hideElement('exploreEmpty');
+  grid.innerHTML = src.map(b => renderGridCard(b)).join('');
+}
+
+function filterExplore(cat) {
+  STATE.exploreCategory = cat;
+  document.querySelectorAll('.explore-filter').forEach(btn => {
+    btn.style.background = btn.dataset.cat === cat ? 'rgba(139,92,246,0.3)' : '';
+  });
+  renderExploreBooks();
+}
+
+function handleExploreSearch(query) {
+  const q = query.toLowerCase().trim();
+  if (!q) { renderExploreBooks(); return; }
+  const filtered = STATE.allBooks.filter(b =>
+    b.title.toLowerCase().includes(q) ||
+    (b.profiles?.display_name||'').toLowerCase().includes(q) ||
+    (b.genres||[]).some(g => g.toLowerCase().includes(q))
+  );
+  renderExploreBooks(filtered);
+}
+
+function handleSearch(query) {
+  // Home search redirects to explore
+  if (query.length > 1) {
+    showPage('explore');
+    document.getElementById('exploreSearch').value = query;
+    handleExploreSearch(query);
+  }
+}
+
+function filterTrending(type) {
+  document.getElementById('trendAll').style.background = type==='all'?'rgba(139,92,246,0.3)':'';
+  document.getElementById('trendManga').style.background = type==='manga'?'rgba(139,92,246,0.3)':'';
+  document.getElementById('trendNovel').style.background = type==='novel'?'rgba(139,92,246,0.3)':'';
+  renderTrendingBooks(type);
+}
+
+// ────────────────────────────────────────────────────────
+// BOOK DETAIL
+// ────────────────────────────────────────────────────────
+async function openBookDetail(bookId) {
+  const book = STATE.allBooks.find(b => b.id === bookId);
+  if (!book) return;
+  STATE.currentBook = book;
+  STATE.currentLangEdition = null;
+
+  // Increment view count (fire & forget)
+  supabase.rpc('increment_view_count', { book_id: bookId }).catch(() => {});
+
+  // Populate modal
+  const coverEl = document.getElementById('bookDetailCoverImg');
+  if (book.cover_url) {
+    coverEl.src = book.cover_url;
+    coverEl.classList.remove('hidden');
+    document.getElementById('bookDetailCover').style.background = 'none';
+  } else {
+    coverEl.classList.add('hidden');
+    document.getElementById('bookDetailCover').style.background = randomGradient(book.id);
+  }
+
+  document.getElementById('bookDetailType').textContent = typeLabel(book.content_type);
+  document.getElementById('bookDetailTitle').textContent = book.title;
+  document.getElementById('bookDetailAuthor').textContent = book.profiles?.display_name || 'Unknown Author';
+  document.getElementById('bookDetailDesc').textContent = book.description || 'No description available.';
+  document.getElementById('bookDetailRating').textContent = book.avg_rating ? `⭐ ${parseFloat(book.avg_rating).toFixed(1)}` : '⭐ New';
+  document.getElementById('bookDetailViews').textContent = `👁 ${fmtNumber(book.view_count || 0)}`;
+  document.getElementById('bookDetailStatus').textContent = book.status || 'ongoing';
+
+  // Genres
+  const genresEl = document.getElementById('bookDetailGenres');
+  genresEl.innerHTML = (book.genres || []).map(g => `<span class="genre-tag text-xs">${escHtml(g)}</span>`).join('');
+
+  // Language editions
+  const langs = book.book_languages || [];
+  const langsEl = document.getElementById('bookDetailLangs');
+  if (langs.length) {
+    langsEl.innerHTML = `<p class="text-gray-400 text-xs mb-2 font-semibold">Available Languages</p>
+      <div class="flex flex-wrap gap-2">
+        ${langs.map((l,i) => `<button onclick="selectLangEdition(${i})" class="lang-btn genre-tag cursor-pointer px-3 py-1.5 text-xs" data-idx="${i}" ${i===0?'style="background:rgba(139,92,246,0.4)"':''}>${escHtml(l.language || 'English')}</button>`).join('')}
+      </div>`;
+    STATE.currentLangEdition = langs[0];
+  } else {
+    langsEl.innerHTML = '';
+  }
+
+  // Bookmark & like state
+  if (STATE.user) {
+    loadBookmarkState(bookId);
+    loadLikeState(bookId);
+    showElement('reviewForm');
+    hideElement('reviewLoginPrompt');
+  } else {
+    showElement('reviewLoginPrompt');
+    hideElement('reviewForm');
+  }
+
+  // Load reviews
+  loadReviews(bookId);
+
+  document.getElementById('bookDetailModal').classList.add('open');
+}
+
+function closeBookDetail() {
+  document.getElementById('bookDetailModal').classList.remove('open');
+  STATE.currentBook = null;
+}
+
+function selectLangEdition(idx) {
+  const langs = STATE.currentBook?.book_languages || [];
+  STATE.currentLangEdition = langs[idx];
+  document.querySelectorAll('.lang-btn').forEach((btn, i) => {
+    btn.style.background = i === idx ? 'rgba(139,92,246,0.4)' : '';
+  });
+}
+
+async function loadBookmarkState(bookId) {
+  if (!STATE.user) return;
+  const { data } = await supabase.from('bookmarks').select('id').eq('user_id', STATE.user.id).eq('book_id', bookId).single();
+  STATE.bookmarkActive = !!data;
+  document.getElementById('bookmarkBtn').textContent = data ? '🔖' : '🔖';
+  document.getElementById('bookmarkBtn').style.background = data ? 'rgba(139,92,246,0.3)' : '';
+}
+
+async function loadLikeState(bookId) {
+  if (!STATE.user) return;
+  const { data } = await supabase.from('likes').select('id').eq('user_id', STATE.user.id).eq('book_id', bookId).single();
+  STATE.likeActive = !!data;
+  document.getElementById('likeBtn').textContent = data ? '♥' : '♡';
+  document.getElementById('likeBtn').style.color = data ? '#f43f5e' : '';
+}
+
+async function toggleBookmark() {
+  if (!STATE.user) { openAuthModal(); return; }
+  const bookId = STATE.currentBook?.id;
+  if (!bookId) return;
+  if (STATE.bookmarkActive) {
+    await supabase.from('bookmarks').delete().eq('user_id', STATE.user.id).eq('book_id', bookId);
+    STATE.bookmarkActive = false;
+    document.getElementById('bookmarkBtn').style.background = '';
+    showToast('Bookmark removed', 'info');
+  } else {
+    await supabase.from('bookmarks').insert({ user_id: STATE.user.id, book_id: bookId });
+    STATE.bookmarkActive = true;
+    document.getElementById('bookmarkBtn').style.background = 'rgba(139,92,246,0.3)';
+    showToast('🔖 Bookmarked!', 'success');
+  }
+}
+
+async function toggleLike() {
+  if (!STATE.user) { openAuthModal(); return; }
+  const bookId = STATE.currentBook?.id;
+  if (!bookId) return;
+  if (STATE.likeActive) {
+    await supabase.from('likes').delete().eq('user_id', STATE.user.id).eq('book_id', bookId);
+    STATE.likeActive = false;
+    document.getElementById('likeBtn').textContent = '♡';
+    document.getElementById('likeBtn').style.color = '';
+  } else {
+    await supabase.from('likes').insert({ user_id: STATE.user.id, book_id: bookId });
+    STATE.likeActive = true;
+    document.getElementById('likeBtn').textContent = '♥';
+    document.getElementById('likeBtn').style.color = '#f43f5e';
+    showToast('♥ Liked!', 'success');
+  }
+}
+
+async function loadReviews(bookId) {
+  const el = document.getElementById('bookDetailReviews');
+  const { data: reviews } = await supabase
+    .from('reviews')
+    .select('*, profiles(display_name, avatar_url)')
+    .eq('book_id', bookId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (!reviews?.length) { el.innerHTML = `<p class="text-gray-500 text-xs text-center py-3">No reviews yet. Be the first!</p>`; return; }
+  el.innerHTML = reviews.map(r => renderReviewItem(r)).join('');
+}
+
+function renderReviewItem(r) {
+  const stars = '★'.repeat(r.rating || 0) + '☆'.repeat(5-(r.rating||0));
+  const name = r.profiles?.display_name || 'Reader';
+  return `<div class="glass-card rounded-xl p-3">
+    <div class="flex items-center gap-2 mb-1.5">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">${name[0].toUpperCase()}</div>
+      <div>
+        <p class="text-white text-xs font-semibold">${escHtml(name)}</p>
+        <p class="text-amber-400 text-[10px]">${stars}</p>
+      </div>
+    </div>
+    ${r.content ? `<p class="text-gray-300 text-xs leading-relaxed">${escHtml(r.content)}</p>` : ''}
+  </div>`;
+}
+
+function appendReview(review) {
+  const el = document.getElementById('bookDetailReviews');
+  if (!el) return;
+  // Fetch profile for the new review
+  supabase.from('profiles').select('display_name').eq('id', review.user_id).single().then(({ data }) => {
+    const r = { ...review, profiles: data };
+    el.insertAdjacentHTML('afterbegin', renderReviewItem(r));
+  });
+}
+
+function setReviewRating(n) {
+  STATE.reviewRating = n;
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.star) <= n);
+  });
+}
+
+async function submitReview() {
+  if (!STATE.user) { openAuthModal(); return; }
+  const content = document.getElementById('reviewText').value.trim();
+  if (!STATE.reviewRating) { showToast('Please select a rating', 'error'); return; }
+  if (!STATE.currentBook) return;
+
+  const { error } = await supabase.from('reviews').insert({
+    user_id: STATE.user.id,
+    book_id: STATE.currentBook.id,
+    rating: STATE.reviewRating,
+    content
+  });
+
+  if (error) showToast(`❌ ${error.message}`, 'error');
+  else {
+    showToast('✅ Review posted!', 'success');
+    document.getElementById('reviewText').value = '';
+    STATE.reviewRating = 0;
+    document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
+    loadReviews(STATE.currentBook.id);
+  }
+}
+
+// ────────────────────────────────────────────────────────
+// READING
+// ────────────────────────────────────────────────────────
+async function startReading() {
+  const book = STATE.currentBook;
+  if (!book) return;
+  const lang = STATE.currentLangEdition || book.book_languages?.[0];
+  if (!lang?.file_url) { showToast('📄 No PDF available for this edition', 'error'); return; }
+
+  closeBookDetail();
+
+  if (['manhwa','manga','comic'].includes(book.content_type)) {
+    openManhwaReader(book, lang);
+  } else {
+    openPdfReader(book, lang);
+  }
+
+  // Save reading progress
+  if (STATE.user) {
+    supabase.from('reading_progress').upsert({
+      user_id: STATE.user.id,
+      book_id: book.id,
+      language_code: lang.language || 'en',
+      last_read_at: new Date().toISOString(),
+      current_page: 1
+    }, { onConflict: 'user_id,book_id,language_code' }).catch(() => {});
+  }
+}
+
+// ── PDF READER ──
+async function openPdfReader(book, lang) {
+  document.getElementById('pdfReaderTitle').textContent = book.title;
+  document.getElementById('pdfReader').classList.remove('hidden');
+  document.getElementById('pdfLoading').style.display = 'flex';
+  document.getElementById('pdfCanvas').style.display = 'none';
+  STATE.pdfPage = 1;
+  STATE.pdfScale = 1.5;
+
+  if (!window.pdfjsLib) { showToast('PDF reader unavailable', 'error'); closePdfReader(); return; }
+
+  try {
+    const loadTask = window.pdfjsLib.getDocument(lang.file_url);
+    STATE.pdfDoc = await loadTask.promise;
+    const total = STATE.pdfDoc.numPages;
+    document.getElementById('pdfProgress').max = total;
+    document.getElementById('pdfProgress').value = 1;
+    await renderPdfPage(1);
+  } catch(e) {
+    showToast(`❌ Cannot load PDF: ${e.message}`, 'error');
+    closePdfReader();
+  }
+}
+
+async function renderPdfPage(pageNum) {
+  if (!STATE.pdfDoc || STATE.pdfRendering) return;
+  STATE.pdfRendering = true;
+  STATE.pdfPage = pageNum;
+  const total = STATE.pdfDoc.numPages;
+  document.getElementById('pdfReaderPage').textContent = `Page ${pageNum} / ${total}`;
+  document.getElementById('pdfProgress').value = pageNum;
+
+  const page = await STATE.pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: STATE.pdfScale });
+  const canvas = document.getElementById('pdfCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.height = viewport.height;
+  canvas.width = viewport.width;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  STATE.pdfRendering = false;
+
+  document.getElementById('pdfLoading').style.display = 'none';
+  canvas.style.display = 'block';
+
+  // Save progress
+  if (STATE.user && STATE.currentBook) {
+    supabase.from('reading_progress').upsert({
+      user_id: STATE.user.id, book_id: STATE.currentBook.id,
+      current_page: pageNum, total_pages: total,
+      last_read_at: new Date().toISOString()
+    }, { onConflict: 'user_id,book_id,language_code' }).catch(() => {});
+  }
+}
+
+function pdfPrevPage() { if (STATE.pdfPage > 1) renderPdfPage(STATE.pdfPage - 1); }
+function pdfNextPage() { if (STATE.pdfDoc && STATE.pdfPage < STATE.pdfDoc.numPages) renderPdfPage(STATE.pdfPage + 1); }
+function pdfGoToPage(n) { if (n >= 1 && STATE.pdfDoc && n <= STATE.pdfDoc.numPages) renderPdfPage(n); }
+function pdfZoomIn() { STATE.pdfScale = Math.min(STATE.pdfScale + 0.25, 4); renderPdfPage(STATE.pdfPage); }
+function pdfZoomOut() { STATE.pdfScale = Math.max(STATE.pdfScale - 0.25, 0.5); renderPdfPage(STATE.pdfPage); }
+function closePdfReader() {
+  document.getElementById('pdfReader').classList.add('hidden');
+  STATE.pdfDoc = null; STATE.pdfRendering = false;
+}
+
+// ── MANHWA READER ──
+function openManhwaReader(book, lang) {
+  document.getElementById('manhwaTitle').textContent = book.title;
+  document.getElementById('manhwaReader').classList.remove('hidden');
+  const pagesEl = document.getElementById('manhwaPages');
+  // For manhwa, if file_url is a PDF, show a message; if images array, render them
+  if (lang.chapter_images && Array.isArray(lang.chapter_images)) {
+    pagesEl.innerHTML = lang.chapter_images.map((url, i) =>
+      `<img src="${escHtml(url)}" class="w-full block" loading="lazy" alt="Page ${i+1}">`
+    ).join('');
+  } else if (lang.file_url) {
+    // Fallback: show PDF in iframe for manhwa
+    pagesEl.innerHTML = `<div class="flex flex-col items-center justify-center py-16 gap-4">
+      <div class="text-4xl">📖</div>
+      <p class="text-white text-sm font-semibold">${escHtml(book.title)}</p>
+      <p class="text-gray-400 text-xs text-center px-8">This manhwa is stored as a PDF.<br>Use the PDF reader for the best experience.</p>
+      <button onclick="closeManhwaReader();openPdfReader(STATE.currentBook, STATE.currentLangEdition)" class="btn-primary px-6 py-3 rounded-xl text-sm">Open PDF Reader</button>
+    </div>`;
+  } else {
+    pagesEl.innerHTML = `<div class="flex flex-col items-center justify-center py-16"><p class="text-gray-400 text-sm">No content available</p></div>`;
+  }
+}
+
+function closeManhwaReader() { document.getElementById('manhwaReader').classList.add('hidden'); }
+function toggleManhwaUI() { document.getElementById('manhwaNav').classList.toggle('hidden'); }
+function prevManhwaChapter() { showToast('Navigate to chapter list', 'info'); }
+function nextManhwaChapter() { showToast('Navigate to next chapter', 'info'); }
+
+// ────────────────────────────────────────────────────────
+// PUBLISHING
+// ────────────────────────────────────────────────────────
+function renderPublishPage() {
+  const form = document.getElementById('publishForm');
+  const auth = document.getElementById('publishAuth');
+  if (STATE.user) {
+    showElement('publishForm');
+    hideElement('publishAuth');
+    form.classList.remove('hidden');
+    auth.classList.add('hidden');
+  } else {
+    hideElement('publishForm');
+    showElement('publishAuth');
+    form.classList.add('hidden');
+    auth.classList.remove('hidden');
+  }
+}
+
+function selectType(type) {
+  STATE.publishType = type;
+  document.getElementById('pubType').value = type;
+  document.querySelectorAll('.type-btn').forEach(btn => {
+    btn.style.borderColor = btn.dataset.type === type ? 'rgba(139,92,246,0.7)' : '';
+    btn.style.background = btn.dataset.type === type ? 'rgba(139,92,246,0.15)' : '';
+  });
+}
+
+function toggleGenre(btn, genre) {
+  const maxGenres = 5;
+  if (STATE.selectedGenres.includes(genre)) {
+    STATE.selectedGenres = STATE.selectedGenres.filter(g => g !== genre);
+    btn.style.background = '';
+    btn.style.borderColor = '';
+  } else {
+    if (STATE.selectedGenres.length >= maxGenres) { showToast('Maximum 5 genres', 'info'); return; }
+    STATE.selectedGenres.push(genre);
+    btn.style.background = 'rgba(139,92,246,0.3)';
+    btn.style.borderColor = 'rgba(139,92,246,0.6)';
+  }
+  document.getElementById('pubGenres').value = JSON.stringify(STATE.selectedGenres);
+}
+
+function addFirstLangEdition() { addLangEdition(); }
+
+function addLangEdition() {
+  const idx = STATE.langEditions.length;
+  STATE.langEditions.push({ language: 'English', file_url: '', drive_file_id: '' });
+  const container = document.getElementById('langEditions');
+  const editionEl = document.createElement('div');
+  editionEl.className = 'glass-card rounded-xl p-3 space-y-2';
+  editionEl.id = `edition-${idx}`;
+  editionEl.innerHTML = `
+    <div class="flex items-center justify-between">
+      <span class="text-white text-xs font-semibold">Edition ${idx+1}</span>
+      ${idx > 0 ? `<button type="button" onclick="removeLangEdition(${idx})" class="text-red-400 text-xs">Remove</button>` : ''}
+    </div>
+    <select id="langSelect-${idx}" class="w-full px-3 py-2.5 text-sm" onchange="STATE.langEditions[${idx}].language=this.value">
+      <option value="English">🇬🇧 English</option>
+      <option value="Arabic">🇸🇦 Arabic</option>
+      <option value="French">🇫🇷 French</option>
+      <option value="Spanish">🇪🇸 Spanish</option>
+      <option value="Korean">🇰🇷 Korean</option>
+      <option value="Japanese">🇯🇵 Japanese</option>
+      <option value="Chinese">🇨🇳 Chinese</option>
+      <option value="German">🇩🇪 German</option>
+      <option value="Portuguese">🇧🇷 Portuguese</option>
+      <option value="Hindi">🇮🇳 Hindi</option>
+      <option value="Turkish">🇹🇷 Turkish</option>
+      <option value="Indonesian">🇮🇩 Indonesian</option>
+    </select>
+    <div>
+      <p class="text-gray-400 text-xs mb-1">PDF File</p>
+      <div onclick="document.getElementById('pdfInput-${idx}').click()" class="glass-card rounded-xl p-3 flex items-center gap-2 cursor-pointer border-dashed border border-brand-primary/20">
+        <span class="text-lg">📄</span>
+        <span id="pdfLabel-${idx}" class="text-gray-400 text-xs flex-1">Tap to select PDF</span>
+        <span id="pdfStatus-${idx}" class="text-xs"></span>
+      </div>
+      <input type="file" id="pdfInput-${idx}" accept=".pdf" class="hidden" onchange="handlePdfSelect(this, ${idx})">
+    </div>`;
+  container.appendChild(editionEl);
+}
+
+function removeLangEdition(idx) {
+  STATE.langEditions.splice(idx, 1);
+  document.getElementById(`edition-${idx}`)?.remove();
+}
+
+function previewCover(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('Cover image must be under 5MB', 'error'); return; }
+  const url = URL.createObjectURL(file);
+  document.getElementById('coverPreviewImg').src = url;
+  showElement('coverPreview');
+  hideElement('coverPlaceholder');
+}
+
+async function handlePdfSelect(input, idx) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = document.getElementById(`pdfLabel-${idx}`);
+  const status = document.getElementById(`pdfStatus-${idx}`);
+  label.textContent = file.name;
+  status.textContent = `${(file.size/1024/1024).toFixed(1)}MB`;
+  STATE.langEditions[idx].localFile = file;
+}
+
+async function uploadCoverToImgBB(file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: formData });
+  if (!res.ok) throw new Error('ImgBB upload failed');
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error?.message || 'ImgBB upload failed');
+  return data.data.url;
+}
+
+async function uploadPdfToSupabase(file, bookId, langCode) {
+  const path = `pdfs/${bookId}/${langCode}-${Date.now()}.pdf`;
+  const { data, error } = await supabase.storage
+    .from('book-files')
+    .upload(path, file, { contentType: 'application/pdf', upsert: true });
+  if (error) throw new Error(error.message);
+  const { data: urlData } = supabase.storage.from('book-files').getPublicUrl(path);
+  return urlData.publicUrl;
+}
+
+async function submitPublish(event, forceStatus) {
+  if (event) event.preventDefault();
+  if (!STATE.user) { openAuthModal(); return; }
+
+  const title = document.getElementById('pubTitle').value.trim();
+  const desc = document.getElementById('pubDesc').value.trim();
+  const status = forceStatus || document.getElementById('pubStatus').value;
+  const visibility = document.getElementById('pubVisibility').value;
+  const coverInput = document.getElementById('coverFileInput');
+
+  if (!title) { showToast('Enter a title', 'error'); return; }
+  if (!desc) { showToast('Enter a description', 'error'); return; }
+  if (!coverInput.files[0] && forceStatus !== 'draft') {
+    showToast('Upload a cover image', 'error'); return;
+  }
+
+  const btn = document.getElementById('publishBtn');
+  setLoading('publishBtn', true, 'Publishing...');
+
+  try {
+    // Upload cover
+    let coverUrl = null;
+    if (coverInput.files[0]) {
+      coverUrl = await uploadCoverToImgBB(coverInput.files[0]);
+    }
+
+    // Insert book record
+    const { data: book, error: bookErr } = await supabase.from('books').insert({
+      title,
+      description: desc,
+      content_type: STATE.publishType,
+      genres: STATE.selectedGenres,
+      status,
+      visibility,
+      publish_status: status === 'draft' ? 'draft' : 'published',
+      cover_url: coverUrl,
+      author_id: STATE.user.id,
+      published_at: status !== 'draft' ? new Date().toISOString() : null
+    }).select().single();
+
+    if (bookErr) throw new Error(bookErr.message);
+
+    // Upload PDFs and create language editions
+    for (const edition of STATE.langEditions) {
+      if (!edition.localFile && !edition.file_url) continue;
+      let fileUrl = edition.file_url;
+      if (edition.localFile) {
+        try {
+          fileUrl = await uploadPdfToSupabase(edition.localFile, book.id, edition.language);
+        } catch(e) {
+          showToast(`⚠️ PDF upload failed for ${edition.language}: ${e.message}`, 'error');
+          continue;
+        }
+      }
+      await supabase.from('book_languages').insert({
+        book_id: book.id, language: edition.language, file_url: fileUrl
+      });
+    }
+
+    showToast(status === 'draft' ? '📝 Draft saved!' : '🚀 Published successfully!', 'success');
+    resetPublishForm();
+    await loadHomeData();
+    showPage('home');
+  } catch(e) {
+    showToast(`❌ ${e.message}`, 'error');
+  } finally {
+    setLoading('publishBtn', false, '🚀 Publish');
+  }
+}
+
+function resetPublishForm() {
+  document.getElementById('publishForm').reset();
+  document.getElementById('coverPreview').classList.add('hidden');
+  document.getElementById('coverPlaceholder').classList.remove('hidden');
+  document.getElementById('langEditions').innerHTML = '';
+  STATE.langEditions = [];
+  STATE.selectedGenres = [];
+  STATE.publishType = 'book';
+  document.querySelectorAll('.type-btn').forEach(b => { b.style.borderColor=''; b.style.background=''; });
+  document.querySelectorAll('[data-genre]').forEach(b => { b.style.background=''; b.style.borderColor=''; });
+  addFirstLangEdition();
+}
+
+// ────────────────────────────────────────────────────────
+// LIBRARY
+// ────────────────────────────────────────────────────────
+async function loadLibraryData() {
+  if (!STATE.user) {
+    showElement('libraryAuth');
+    hideElement('libraryContent');
+    return;
+  }
+  hideElement('libraryAuth');
+  showElement('libraryContent');
+  await renderLibraryTab(STATE.libraryTab);
+}
+
+function switchLibTab(tab) {
+  STATE.libraryTab = tab;
+  document.querySelectorAll('.lib-tab').forEach(btn => {
+    btn.style.background = btn.dataset.tab === tab ? 'rgba(139,92,246,0.3)' : '';
+  });
+  renderLibraryTab(tab);
+}
+
+async function renderLibraryTab(tab) {
+  const grid = document.getElementById('libraryGrid');
+  const empty = document.getElementById('libraryEmpty');
+  grid.innerHTML = `<div class="skeleton h-20 rounded-2xl"></div><div class="skeleton h-20 rounded-2xl"></div>`;
+
+  if (tab === 'reading' || tab === 'completed') {
+    const { data } = await supabase
+      .from('reading_progress')
+      .select('*, books(id, title, cover_url, content_type, profiles(display_name))')
+      .eq('user_id', STATE.user.id)
+      .order('last_read_at', { ascending: false });
+
+    const items = (data || []).filter(p => {
+      if (tab === 'completed') return p.current_page >= (p.total_pages || Infinity);
+      return true;
+    });
+
+    if (!items.length) { grid.innerHTML = ''; showElement('libraryEmpty'); return; }
+    hideElement('libraryEmpty');
+    grid.innerHTML = items.map(p => {
+      const b = p.books;
+      if (!b) return '';
+      const progress = p.total_pages ? Math.round((p.current_page / p.total_pages) * 100) : 0;
+      const cover = b.cover_url ? `<img src="${escHtml(b.cover_url)}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-2xl" style="background:${randomGradient(b.id)}">📚</div>`;
+      return `<div onclick="openBookDetail('${b.id}')" class="book-card-hover cursor-pointer glass-card rounded-2xl p-3 flex gap-3">
+        <div class="w-16 rounded-xl overflow-hidden flex-shrink-0" style="height:88px">${cover}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-white font-bold text-sm truncate">${escHtml(b.title)}</p>
+          <p class="text-gray-400 text-xs mb-2">${escHtml(b.profiles?.display_name||'Unknown')}</p>
+          <div class="w-full rounded-full h-1.5 mb-1" style="background:rgba(255,255,255,0.1)">
+            <div class="h-1.5 rounded-full" style="background:linear-gradient(90deg,#8b5cf6,#a855f7);width:${progress}%"></div>
+          </div>
+          <p class="text-gray-500 text-[10px]">${progress}% read${p.current_page > 1 ? ` • page ${p.current_page}` : ''}</p>
+        </div>
+      </div>`;
+    }).join('');
+  } else if (tab === 'bookmarked') {
+    const { data } = await supabase
+      .from('bookmarks')
+      .select('*, books(id, title, cover_url, content_type, profiles(display_name))')
+      .eq('user_id', STATE.user.id)
+      .order('created_at', { ascending: false });
+
+    if (!data?.length) { grid.innerHTML = ''; showElement('libraryEmpty'); return; }
+    hideElement('libraryEmpty');
+    grid.innerHTML = (data || []).map(bk => {
+      const b = bk.books;
+      if (!b) return '';
+      const cover = b.cover_url ? `<img src="${escHtml(b.cover_url)}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-2xl" style="background:${randomGradient(b.id)}">📚</div>`;
+      return `<div onclick="openBookDetail('${b.id}')" class="book-card-hover cursor-pointer glass-card rounded-2xl p-3 flex gap-3">
+        <div class="w-16 rounded-xl overflow-hidden flex-shrink-0" style="height:88px">${cover}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-white font-bold text-sm truncate">${escHtml(b.title)}</p>
+          <p class="text-gray-400 text-xs">${escHtml(b.profiles?.display_name||'Unknown')}</p>
+          <span class="genre-tag text-[9px] mt-1 inline-block">${typeLabel(b.content_type)}</span>
+        </div>
+        <button onclick="event.stopPropagation();removeBookmark('${bk.id}')" class="text-gray-500 text-xs flex-shrink-0">✕</button>
+      </div>`;
+    }).join('');
+  } else if (tab === 'lists') {
+    const { data } = await supabase
+      .from('reading_lists')
+      .select('*')
+      .eq('user_id', STATE.user.id)
+      .order('created_at', { ascending: false });
+
+    if (!data?.length) {
+      grid.innerHTML = `<div class="text-center py-8"><p class="text-gray-500 text-sm mb-3">No reading lists yet</p><button onclick="createReadingList()" class="btn-ghost px-4 py-2 rounded-xl text-sm">+ New List</button></div>`;
+      hideElement('libraryEmpty');
+      return;
+    }
+    grid.innerHTML = (data || []).map(list => `
+      <div class="glass-card rounded-2xl p-4">
+        <div class="flex items-center justify-between">
+          <p class="text-white font-bold text-sm">${escHtml(list.name)}</p>
+          <span class="text-gray-500 text-xs">${list.is_public ? '🌐' : '🔒'}</span>
+        </div>
+        ${list.description ? `<p class="text-gray-400 text-xs mt-1">${escHtml(list.description)}</p>` : ''}
+      </div>`).join('');
+    hideElement('libraryEmpty');
+  }
+}
+
+async function removeBookmark(bookmarkId) {
+  await supabase.from('bookmarks').delete().eq('id', bookmarkId);
+  loadLibraryData();
+}
+
+async function createReadingList() {
+  const name = prompt('Reading list name:');
+  if (!name || !STATE.user) return;
+  const { error } = await supabase.from('reading_lists').insert({ user_id: STATE.user.id, name });
+  if (error) showToast('Failed to create list', 'error');
+  else { showToast('📚 List created!', 'success'); renderLibraryTab('lists'); }
+}
+
+// ────────────────────────────────────────────────────────
+// PROFILE
+// ────────────────────────────────────────────────────────
+function renderProfilePage() {
+  if (!STATE.user) {
+    showElement('profileAuthMsg');
+    hideElement('profileContent');
+    return;
+  }
+  hideElement('profileAuthMsg');
+  showElement('profileContent');
+
+  const p = STATE.profile;
+  document.getElementById('profileName').textContent = p?.display_name || STATE.user.email?.split('@')[0] || 'User';
+  document.getElementById('profileHandle').textContent = `@${(p?.display_name || 'user').toLowerCase().replace(/\s+/g,'')}`;
+  document.getElementById('profileBio').textContent = p?.bio || 'No bio yet.';
+
+  if (p?.avatar_url) {
+    const img = document.getElementById('profileAvatar');
+    img.src = p.avatar_url; img.classList.remove('hidden');
+    document.getElementById('profileAvatarInitial').classList.add('hidden');
+  } else {
+    document.getElementById('profileAvatarInitial').textContent = (p?.display_name || STATE.user.email || 'U')[0].toUpperCase();
+    document.getElementById('profileAvatar').classList.add('hidden');
+    document.getElementById('profileAvatarInitial').classList.remove('hidden');
+  }
+
+  document.getElementById('settingsName').value = p?.display_name || '';
+  document.getElementById('settingsBio').value = p?.bio || '';
+
+  loadProfileStats();
+  switchProfileTab('published');
+  loadDriveAccounts();
+}
+
+async function loadProfileStats() {
+  if (!STATE.user) return;
+  const [booksRes, followersRes, followingRes] = await Promise.all([
+    supabase.from('books').select('id, view_count, avg_rating').eq('author_id', STATE.user.id),
+    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', STATE.user.id),
+    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', STATE.user.id)
+  ]);
+
+  const books = booksRes.data || [];
+  const totalViews = books.reduce((s, b) => s + (b.view_count || 0), 0);
+  const avgRating = books.filter(b => b.avg_rating).reduce((s, b, _, a) => s + b.avg_rating / a.length, 0);
+
+  document.getElementById('statBooks').textContent = books.length;
+  document.getElementById('statFollowers').textContent = followersRes.count || 0;
+  document.getElementById('statFollowing').textContent = followingRes.count || 0;
+  document.getElementById('statViews').textContent = fmtNumber(totalViews);
+  document.getElementById('anaViews').textContent = fmtNumber(totalViews);
+  document.getElementById('anaReaders').textContent = fmtNumber(totalViews);
+  document.getElementById('anaRating').textContent = avgRating ? avgRating.toFixed(1) + ' ⭐' : '—';
+  document.getElementById('anaPublications').textContent = books.length;
+}
+
+function switchProfileTab(tab) {
+  STATE.profileTab = tab;
+  document.querySelectorAll('.prof-tab').forEach(btn => {
+    btn.style.background = btn.dataset.tab === tab ? 'rgba(139,92,246,0.3)' : '';
+  });
+  document.getElementById('profTabPublished').classList.toggle('hidden', tab !== 'published');
+  document.getElementById('profTabAnalytics').classList.toggle('hidden', tab !== 'analytics');
+  document.getElementById('profTabDrive').classList.toggle('hidden', tab !== 'drive');
+  document.getElementById('profTabSettings').classList.toggle('hidden', tab !== 'settings');
+  if (tab === 'published') loadMyPublications();
+}
+
+async function loadMyPublications() {
+  if (!STATE.user) return;
+  const el = document.getElementById('profTabPublished');
+  el.innerHTML = `<div class="skeleton h-20 rounded-2xl mb-3"></div>`;
+
+  const { data: books } = await supabase
+    .from('books')
+    .select('*')
+    .eq('author_id', STATE.user.id)
+    .order('created_at', { ascending: false });
+
+  if (!books?.length) {
+    el.innerHTML = `<div class="text-center py-8"><p class="text-gray-500 text-sm mb-3">No publications yet</p><button onclick="showPage('publish')" class="btn-primary px-5 py-2.5 rounded-xl text-sm">Publish Now</button></div>`;
+    return;
+  }
+
+  el.innerHTML = books.map(b => `
+    <div class="glass-card rounded-2xl p-3 flex gap-3 mb-3">
+      <div class="w-14 rounded-xl overflow-hidden flex-shrink-0" style="height:80px;background:${randomGradient(b.id)}">
+        ${b.cover_url ? `<img src="${escHtml(b.cover_url)}" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-xl">📚</div>'}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-white font-bold text-sm truncate">${escHtml(b.title)}</p>
+          <span class="genre-tag text-[9px] flex-shrink-0">${escHtml(b.publish_status||'draft')}</span>
+        </div>
+        <p class="text-gray-400 text-xs mt-0.5 mb-2">${typeLabel(b.content_type)} • ${fmtNumber(b.view_count||0)} views</p>
+        <div class="flex gap-2">
+          <button onclick="openBookDetail('${b.id}')" class="btn-ghost px-3 py-1 rounded-lg text-xs">View</button>
+          <button onclick="deleteBook('${b.id}')" class="px-3 py-1 rounded-lg text-xs" style="background:rgba(244,63,94,0.1);color:#f87171;border:1px solid rgba(244,63,94,0.2)">Delete</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function deleteBook(bookId) {
+  if (!confirm('Delete this publication? This cannot be undone.')) return;
+  const { error } = await supabase.from('books').delete().eq('id', bookId).eq('author_id', STATE.user.id);
+  if (error) showToast(`❌ ${error.message}`, 'error');
+  else { showToast('🗑 Publication deleted', 'info'); loadMyPublications(); }
+}
+
+async function saveProfileSettings() {
+  if (!STATE.user) return;
+  const name = document.getElementById('settingsName').value.trim();
+  const bio = document.getElementById('settingsBio').value.trim();
+  const { error } = await supabase.from('profiles').upsert({ id: STATE.user.id, display_name: name, bio, updated_at: new Date().toISOString() });
+  if (error) showToast(`❌ ${error.message}`, 'error');
+  else {
+    STATE.profile = { ...STATE.profile, display_name: name, bio };
+    showToast('✅ Profile updated!', 'success');
+    renderProfilePage();
+    updateHeaderForUser();
+  }
+}
+
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if (!file || !STATE.user) return;
+  try {
+    const url = await uploadCoverToImgBB(file);
+    await supabase.from('profiles').upsert({ id: STATE.user.id, avatar_url: url });
+    STATE.profile = { ...STATE.profile, avatar_url: url };
+    renderProfilePage();
+    updateHeaderForUser();
+    showToast('✅ Avatar updated!', 'success');
+  } catch(e) { showToast(`❌ ${e.message}`, 'error'); }
+}
+
+async function uploadCoverImage(input) {
+  const file = input.files[0];
+  if (!file || !STATE.user) return;
+  try {
+    const url = await uploadCoverToImgBB(file);
+    await supabase.from('profiles').upsert({ id: STATE.user.id, cover_url: url });
+    STATE.profile = { ...STATE.profile, cover_url: url };
+    const img = document.getElementById('profileCoverImg');
+    img.src = url; img.classList.remove('hidden');
+    showToast('✅ Cover updated!', 'success');
+  } catch(e) { showToast(`❌ ${e.message}`, 'error'); }
+}
+
+// ────────────────────────────────────────────────────────
+// GOOGLE DRIVE ACCOUNTS
+// ────────────────────────────────────────────────────────
+async function loadDriveAccounts() {
+  if (!STATE.user) return;
+  const { data } = await supabase
+    .from('google_drive_accounts')
+    .select('*')
+    .eq('user_id', STATE.user.id);
+  STATE.driveAccounts = data || [];
+  renderDriveAccounts();
+}
+
+function renderDriveAccounts() {
+  const el = document.getElementById('driveAccountsList');
+  if (!STATE.driveAccounts.length) {
+    el.innerHTML = `<div class="text-center py-4 text-gray-500 text-xs">No Google Drive accounts connected</div>`;
+    return;
+  }
+  el.innerHTML = STATE.driveAccounts.map(acc => `
+    <div class="glass-card rounded-xl p-3 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg" style="background:rgba(66,133,244,0.15);border:1px solid rgba(66,133,244,0.3)">☁️</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-white text-sm font-semibold truncate">${escHtml(acc.account_email || 'Google Account')}</p>
+        <p class="text-gray-400 text-xs">${acc.is_default ? '⭐ Default' : 'Connected'} • ${acc.label || ''}</p>
+      </div>
+      <button onclick="disconnectDrive('${acc.id}')" class="text-red-400 text-xs btn-ghost px-2 py-1 rounded-lg">Disconnect</button>
+    </div>`).join('');
+}
+
+function connectGoogleDrive() {
+  showToast('⚙️ Google Drive OAuth requires Google Client ID in environment configuration. Set GOOGLE_CLIENT_ID in .env.local and redeploy.', 'info');
+}
+
+async function disconnectDrive(accountId) {
+  if (!confirm('Disconnect this Google Drive account?')) return;
+  const { error } = await supabase.from('google_drive_accounts').delete().eq('id', accountId).eq('user_id', STATE.user.id);
+  if (error) showToast(`❌ ${error.message}`, 'error');
+  else { showToast('Disconnected', 'info'); loadDriveAccounts(); }
+}
+
+// ────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ────────────────────────────────────────────────────────
+async function loadNotifications() {
+  if (!STATE.user) return;
+  const { data, count } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact' })
+    .eq('user_id', STATE.user.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  const unread = (data || []).filter(n => !n.is_read).length;
+  STATE.notifCount = unread;
+  updateNotifBadge();
+
+  const list = document.getElementById('notifList');
+  const empty = document.getElementById('notifEmpty');
+  if (!data?.length) { list.innerHTML = ''; showElement('notifEmpty'); return; }
+  hideElement('notifEmpty');
+  list.innerHTML = data.map(n => `
+    <div class="glass-card rounded-xl p-3 ${!n.is_read ? 'border border-brand-primary/30' : ''}">
+      <div class="flex items-start gap-2">
+        <span class="text-lg">${notifIcon(n.type)}</span>
+        <div class="flex-1">
+          <p class="text-white text-xs font-semibold">${escHtml(n.title || 'Notification')}</p>
+          <p class="text-gray-400 text-xs mt-0.5">${escHtml(n.message || '')}</p>
+          <p class="text-gray-600 text-[10px] mt-1">${timeAgo(n.created_at)}</p>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function notifIcon(type) {
+  const icons = { follow: '👤', comment: '💬', review: '⭐', like: '♥', publish: '📚', system: '🔔' };
+  return icons[type] || '🔔';
+}
+
+function updateNotifBadge() {
+  const badge = document.getElementById('notifBadge');
+  if (STATE.notifCount > 0) {
+    badge.textContent = STATE.notifCount > 9 ? '9+' : STATE.notifCount;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+async function markAllRead() {
+  if (!STATE.user) return;
+  await supabase.from('notifications').update({ is_read: true }).eq('user_id', STATE.user.id).eq('is_read', false);
+  STATE.notifCount = 0;
+  updateNotifBadge();
+  loadNotifications();
+}
+
+document.getElementById('notifBtn')?.addEventListener('click', () => {
+  document.getElementById('notifPanel').classList.add('open');
+  if (STATE.user) loadNotifications();
+});
+
+function closeNotifPanel() { document.getElementById('notifPanel').classList.remove('open'); }
+
+// ────────────────────────────────────────────────────────
+// ADMIN PANEL
+// ────────────────────────────────────────────────────────
+async function openAdmin() {
+  if (!STATE.isAdmin) { showToast('⛔ Admin access denied', 'error'); return; }
+  document.getElementById('adminPanel').classList.remove('hidden');
+  switchAdminTab('users');
+}
+
+function closeAdmin() { document.getElementById('adminPanel').classList.add('hidden'); }
+
+function switchAdminTab(tab) {
+  STATE.adminTab = tab;
+  document.querySelectorAll('.admin-tab').forEach(btn => {
+    btn.style.background = btn.dataset.tab === tab ? 'rgba(139,92,246,0.3)' : '';
+  });
+  loadAdminContent(tab);
+}
+
+async function loadAdminContent(tab) {
+  const el = document.getElementById('adminContent');
+  el.innerHTML = `<div class="skeleton h-20 rounded-2xl mb-3"></div><div class="skeleton h-20 rounded-2xl"></div>`;
+
+  if (tab === 'users') {
+    const { data, count } = await supabase.from('profiles').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(20);
+    el.innerHTML = `<p class="text-gray-400 text-xs mb-3">Total users: ${count || 0}</p>` +
+      (data || []).map(u => `<div class="glass-card rounded-xl p-3 flex items-center gap-3 mb-2">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">${(u.display_name||u.email||'U')[0].toUpperCase()}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-white text-sm font-semibold truncate">${escHtml(u.display_name || 'User')}</p>
+          <p class="text-gray-400 text-xs truncate">${escHtml(u.email || '')}</p>
+        </div>
+        <span class="text-gray-600 text-xs">${timeAgo(u.created_at)}</span>
+      </div>`).join('');
+  } else if (tab === 'books') {
+    const { data, count } = await supabase.from('books').select('*, profiles(display_name)', { count: 'exact' }).order('created_at', { ascending: false }).limit(20);
+    el.innerHTML = `<p class="text-gray-400 text-xs mb-3">Total publications: ${count || 0}</p>` +
+      (data || []).map(b => `<div class="glass-card rounded-xl p-3 mb-2">
+        <div class="flex items-center justify-between">
+          <p class="text-white text-sm font-semibold truncate flex-1">${escHtml(b.title)}</p>
+          <div class="flex gap-2 ml-2">
+            <span class="genre-tag text-[9px]">${escHtml(b.publish_status||'draft')}</span>
+            <button onclick="adminDeleteBook('${b.id}')" class="text-red-400 text-xs">🗑</button>
+          </div>
+        </div>
+        <p class="text-gray-400 text-xs mt-1">by ${escHtml(b.profiles?.display_name||'Unknown')} • ${timeAgo(b.created_at)}</p>
+      </div>`).join('');
+  } else if (tab === 'reports') {
+    const { data } = await supabase.from('reports').select('*').order('created_at', { ascending: false }).limit(20);
+    if (!data?.length) { el.innerHTML = `<p class="text-gray-500 text-sm text-center py-8">No reports</p>`; return; }
+    el.innerHTML = (data || []).map(r => `<div class="glass-card rounded-xl p-3 mb-2">
+      <p class="text-white text-sm font-semibold">${escHtml(r.reason || 'Report')}</p>
+      <p class="text-gray-400 text-xs mt-1">${timeAgo(r.created_at)}</p>
+    </div>`).join('');
+  } else if (tab === 'logs') {
+    const { data } = await supabase.from('admin_logs').select('*').order('created_at', { ascending: false }).limit(30);
+    if (!data?.length) { el.innerHTML = `<p class="text-gray-500 text-sm text-center py-8">No admin logs</p>`; return; }
+    el.innerHTML = (data || []).map(l => `<div class="glass-card rounded-xl p-3 mb-2">
+      <p class="text-white text-sm font-semibold">${escHtml(l.action || 'Action')}</p>
+      <p class="text-gray-400 text-xs mt-1">${timeAgo(l.created_at)}</p>
+    </div>`).join('');
+  }
+}
+
+async function adminDeleteBook(bookId) {
+  if (!STATE.isAdmin) return;
+  if (!confirm('Delete this publication as admin?')) return;
+  const { error } = await supabase.from('books').delete().eq('id', bookId);
+  if (error) showToast(`❌ ${error.message}`, 'error');
+  else { showToast('🗑 Publication deleted by admin', 'info'); loadAdminContent('books'); }
+}
+
+// ────────────────────────────────────────────────────────
+// DEVELOPER TERMINAL
+// ────────────────────────────────────────────────────────
+function setupLogoClickCounter() {
+  const logo = document.getElementById('logoArea');
+  logo.addEventListener('click', () => {
+    const now = Date.now();
+    if (now - STATE.terminalLastClick > 2000) STATE.terminalClickCount = 0;
+    STATE.terminalLastClick = now;
+    STATE.terminalClickCount++;
+    if (STATE.terminalClickCount >= 5) {
+      STATE.terminalClickCount = 0;
+      openTerminal();
+    }
+  });
+}
+
+function openTerminal() {
+  document.getElementById('devTerminal').classList.remove('hidden');
+  const output = document.getElementById('terminalOutput');
+  output.innerHTML = '';
+  termPrint('NOVELIX DEVELOPER TERMINAL v2.1');
+  termPrint('══════════════════════════════════════');
+  termPrint(`Supabase: ${SUPABASE_URL}`);
+  termPrint(`Auth: ${STATE.user ? '✓ Authenticated (' + STATE.user.email + ')' : '✗ Guest'}`);
+  termPrint(`Admin: ${STATE.isAdmin ? '✓ Yes' : '✗ No'}`);
+  termPrint(`Realtime: ${STATE.realtimeChannels.length > 0 ? '✓ Connected' : '✗ Off'}`);
+  termPrint(`Books loaded: ${STATE.allBooks.length}`);
+  termPrint(`PDF.js: ${window.pdfjsLib ? '✓ Ready' : '✗ Not available'}`);
+  termPrint('Type "help" for commands');
+  termPrint('');
+  document.getElementById('terminalInput').focus();
+}
+
+function closeTerminal() { document.getElementById('devTerminal').classList.add('hidden'); }
+
+function termPrint(msg, color) {
+  const out = document.getElementById('terminalOutput');
+  const span = document.createElement('div');
+  span.style.color = color || '#00ff41';
+  span.textContent = `> ${msg}`;
+  out.appendChild(span);
+  out.scrollTop = out.scrollHeight;
+}
+
+const TERMINAL_COMMANDS = {
+  help: () => {
+    termPrint('Available commands:', '#aaffaa');
+    termPrint('  status    — App status & connection info');
+    termPrint('  user      — Current user info');
+    termPrint('  books     — List loaded books');
+    termPrint('  db        — Test Supabase connection');
+    termPrint('  reload    — Reload books from database');
+    termPrint('  auth      — Auth state');
+    termPrint('  cache     — Clear app cache');
+    termPrint('  admin     — Open admin panel (admin only)');
+    termPrint('  version   — App version info');
+    termPrint('  clear     — Clear terminal');
+    termPrint('  exit      — Close terminal');
+  },
+  status: () => {
+    termPrint(`Version: NOVELIX 2.1`);
+    termPrint(`Online: ${navigator.onLine ? '✓' : '✗'}`);
+    termPrint(`Auth: ${STATE.user?.email || 'Guest'}`);
+    termPrint(`Admin: ${STATE.isAdmin}`);
+    termPrint(`Books: ${STATE.allBooks.length}`);
+    termPrint(`Realtime channels: ${STATE.realtimeChannels.length}`);
+  },
+  user: () => {
+    if (!STATE.user) { termPrint('Not authenticated', '#ffaa00'); return; }
+    termPrint(`Email: ${STATE.user.email}`);
+    termPrint(`ID: ${STATE.user.id}`);
+    termPrint(`Name: ${STATE.profile?.display_name || 'Not set'}`);
+    termPrint(`Admin: ${STATE.isAdmin}`);
+  },
+  books: () => {
+    if (!STATE.allBooks.length) { termPrint('No books loaded', '#ffaa00'); return; }
+    STATE.allBooks.slice(0,10).forEach((b,i) => termPrint(`${i+1}. [${b.content_type}] ${b.title}`));
+    if (STATE.allBooks.length > 10) termPrint(`... and ${STATE.allBooks.length-10} more`);
+  },
+  db: async () => {
+    termPrint('Testing Supabase connection...');
+    const { data, error } = await supabase.from('books').select('id').limit(1);
+    if (error) termPrint(`✗ Error: ${error.message}`, '#ff4444');
+    else termPrint('✓ Supabase connected', '#00ff88');
+  },
+  reload: async () => {
+    termPrint('Reloading books...');
+    await loadHomeData();
+    termPrint(`✓ Loaded ${STATE.allBooks.length} books`, '#00ff88');
+  },
+  auth: () => {
+    termPrint(`Session: ${STATE.session ? 'Active' : 'None'}`);
+    termPrint(`Expires: ${STATE.session?.expires_at ? new Date(STATE.session.expires_at*1000).toLocaleString() : 'N/A'}`);
+  },
+  cache: () => {
+    localStorage.removeItem('novelix-cache');
+    STATE.offlineCache = {};
+    termPrint('✓ Cache cleared', '#00ff88');
+  },
+  admin: async () => {
+    if (!STATE.isAdmin) { termPrint('✗ Admin access denied', '#ff4444'); return; }
+    closeTerminal();
+    openAdmin();
+  },
+  version: () => {
+    termPrint('NOVELIX 2.1 — Real-Time Publishing Platform');
+    termPrint('Built with: Supabase, PDF.js, Tailwind CSS');
+    termPrint('Capacitor 8 | Android SDK 36 | Node 22');
+  },
+  clear: () => { document.getElementById('terminalOutput').innerHTML = ''; },
+  exit: () => closeTerminal()
+};
+
+async function handleTerminalInput(e) {
+  if (e.key !== 'Enter') return;
+  const input = document.getElementById('terminalInput');
+  const cmd = input.value.trim().toLowerCase();
+  input.value = '';
+  if (!cmd) return;
+  termPrint(`$ ${cmd}`, '#ffffff');
+  const fn = TERMINAL_COMMANDS[cmd];
+  if (fn) await fn();
+  else termPrint(`Command not found: ${cmd}. Type "help"`, '#ffaa00');
+}
+
+// ────────────────────────────────────────────────────────
+// PAGE NAVIGATION
+// ────────────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pageEl = document.getElementById(`page-${page}`);
+  if (pageEl) {
+    pageEl.classList.add('active');
+    pageEl.classList.add('animate-fade-in');
+    setTimeout(() => pageEl.classList.remove('animate-fade-in'), 400);
+  }
+  const navEl = document.getElementById(`nav-${page}`);
+  if (navEl) navEl.classList.add('active');
+  STATE.currentPage = page;
+
+  // Page-specific load
+  if (page === 'library') loadLibraryData();
+  if (page === 'profile') renderProfilePage();
+  if (page === 'explore') renderExploreBooks();
+  if (page === 'publish') renderPublishPage();
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ────────────────────────────────────────────────────────
+// AUTH MODAL
+// ────────────────────────────────────────────────────────
+function openAuthModal() {
+  if (STATE.user) { showPage('profile'); return; }
+  document.getElementById('authModal').classList.add('open');
+}
+
+function closeAuthModal() {
+  document.getElementById('authModal').classList.remove('open');
+}
+
+function switchAuthTab(tab) {
+  document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
+  document.getElementById('forgotForm').classList.add('hidden');
+
+  const loginTabBtn = document.getElementById('authTabLogin');
+  const regTabBtn = document.getElementById('authTabRegister');
+  if (tab === 'login') {
+    loginTabBtn.style.cssText = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white';
+    regTabBtn.style.cssText = 'background:transparent;color:#9ca3af';
+    document.getElementById('authTitle').textContent = 'Welcome back';
+    document.getElementById('authSubtitle').textContent = 'Sign in to continue reading';
+    document.getElementById('authSwitch').innerHTML = 'Don\'t have an account? <button onclick="switchAuthTab(\'register\')" class="text-brand-primary font-semibold">Sign Up</button>';
+  } else {
+    regTabBtn.style.cssText = 'background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:white';
+    loginTabBtn.style.cssText = 'background:transparent;color:#9ca3af';
+    document.getElementById('authTitle').textContent = 'Create account';
+    document.getElementById('authSubtitle').textContent = 'Join the NOVELIX community';
+    document.getElementById('authSwitch').innerHTML = 'Already have an account? <button onclick="switchAuthTab(\'login\')" class="text-brand-primary font-semibold">Sign In</button>';
+  }
+}
+
+function showForgotPassword() {
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('forgotForm').classList.remove('hidden');
+}
+
+// ────────────────────────────────────────────────────────
+// UTILITIES
+// ────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast');
+  const icon = document.getElementById('toastIcon');
+  const msgEl = document.getElementById('toastMsg');
+
+  const colors = {
+    success: { bg: 'rgba(34,197,94,0.15)', border: 'rgba(34,197,94,0.3)', icon: '✅' },
+    error: { bg: 'rgba(244,63,94,0.15)', border: 'rgba(244,63,94,0.3)', icon: '❌' },
+    info: { bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.3)', icon: 'ℹ️' }
+  };
+  const c = colors[type] || colors.info;
+  toast.style.background = c.bg;
+  toast.style.borderColor = c.border;
+  icon.textContent = c.icon;
+  msgEl.textContent = msg;
+
+  toast.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function setLoading(btnId, loading, text) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  if (loading) {
+    btn.dataset.originalText = btn.textContent;
+    btn.innerHTML = `<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 inline-block"></div>${text}`;
+  } else {
+    btn.innerHTML = text || btn.dataset.originalText || btn.textContent;
+  }
+}
+
+function showElement(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function hideElement(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+function togglePwdVis(inputId) {
+  const input = document.getElementById(inputId);
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function fmtNumber(n) {
+  if (!n) return '0';
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function randomGradient(seed) {
+  const gradients = [
+    'linear-gradient(135deg,#1b1b2c,#27273e)',
+    'linear-gradient(135deg,#0f0f1a,#1a0a2e)',
+    'linear-gradient(135deg,#0a1628,#0f2847)',
+    'linear-gradient(135deg,#1a0a0a,#2e1515)',
+    'linear-gradient(135deg,#0a1a0a,#152e15)',
+    'linear-gradient(135deg,#1a1a0a,#2e2e15)',
+  ];
+  const idx = seed ? Math.abs(hashCode(String(seed))) % gradients.length : 0;
+  return gradients[idx];
+}
+
+function hashCode(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+function typeLabel(type) {
+  const labels = {
+    book: 'Book', novel: 'Novel', manga: 'Manga', manhwa: 'Manhwa',
+    comic: 'Comic', short_story: 'Short Story', series: 'Series', educational: 'Educational'
+  };
+  return labels[type] || type || 'Book';
+}
+
+function showSkeletons() {
+  const el = document.getElementById('trendingBooks');
+  if (el) el.innerHTML = '<div class="skeleton h-48 rounded-2xl"></div><div class="skeleton h-48 rounded-2xl"></div><div class="skeleton h-48 rounded-2xl"></div><div class="skeleton h-48 rounded-2xl"></div>';
+}
+
+function hideSkeletons() {}
+
+// ────────────────────────────────────────────────────────
+// NETWORK LISTENER
+// ────────────────────────────────────────────────────────
+function setupNetworkListener() {
+  const banner = document.getElementById('offlineBanner');
+  window.addEventListener('online', () => {
+    banner.classList.add('hidden');
+    showToast('✅ Back online', 'success');
+    loadHomeData();
+  });
+  window.addEventListener('offline', () => {
+    banner.classList.remove('hidden');
+    showToast('⚡ You\'re offline', 'error');
+  });
+  if (!navigator.onLine) banner.classList.remove('hidden');
+}
+
+// ────────────────────────────────────────────────────────
+// PDF.js WORKER
+// ────────────────────────────────────────────────────────
+function setupPDFWorker() {
+  if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+}
+
+</script>
+</body>
+</html>
