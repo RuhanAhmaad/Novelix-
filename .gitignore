@@ -1,0 +1,47 @@
+# ─── Node / pnpm ──────────────────────────────────────────────────────────────
+/node_modules
+/.pnpm-store
+
+# ─── Next.js ──────────────────────────────────────────────────────────────────
+/.next/
+# NOTE: /out/ is NOT ignored — Capacitor needs the out/ folder in git
+
+# ─── Production builds ────────────────────────────────────────────────────────
+/dist
+
+# ─── Environment (secrets — NEVER commit) ─────────────────────────────────────
+.env*.local
+.env.production
+.env.secret
+
+# ─── Debug logs ───────────────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# ─── OS and Editor ────────────────────────────────────────────────────────────
+.DS_Store
+*.pem
+.vscode/
+.idea/
+Thumbs.db
+
+# ─── Android Build Outputs (keep project source, exclude compiled outputs) ────
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/.cxx/
+android/local.properties
+android/app/google-services.json
+*.apk
+*.aab
+
+# ─── Capacitor ────────────────────────────────────────────────────────────────
+# Keep android/ source files — exclude only compiled outputs above
+
+# ─── TypeScript ───────────────────────────────────────────────────────────────
+*.tsbuildinfo
+next-env.d.ts

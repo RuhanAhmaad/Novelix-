@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow HTTPS to all domains -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Allow specific trusted domains -->
+    <domain-config cleartextTrafficPermitted="false">
+        <!-- NOVELIX live deployment -->
+        <domain includeSubdomains="true">novelix.vercel.app</domain>
+        <domain includeSubdomains="true">novelix.app</domain>
+
+        <!-- Supabase backend -->
+        <domain includeSubdomains="true">supabase.co</domain>
+        <domain includeSubdomains="true">gzwpfvhmjweeydiwdsga.supabase.co</domain>
+
+        <!-- ImgBB image hosting -->
+        <domain includeSubdomains="true">ibb.co</domain>
+        <domain includeSubdomains="true">i.ibb.co</domain>
+
+        <!-- Google Drive & OAuth -->
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">google.com</domain>
+        <domain includeSubdomains="true">accounts.google.com</domain>
+        <domain includeSubdomains="true">drive.google.com</domain>
+
+        <!-- Vercel deployment -->
+        <domain includeSubdomains="true">vercel.app</domain>
+    </domain-config>
+
+    <!-- Dev/debug local server (localhost) -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+        <domain-config cleartextTrafficPermitted="true">
+            <domain includeSubdomains="true">localhost</domain>
+            <domain includeSubdomains="true">10.0.2.2</domain>
+            <domain includeSubdomains="true">192.168.0.0/16</domain>
+        </domain-config>
+    </debug-overrides>
+</network-security-config>
