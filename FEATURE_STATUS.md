@@ -25,7 +25,7 @@
 |---|---|---|
 | Email/Password Registration | 🟢 IMPLEMENTED | `auth.createUserWithEmailAndPassword()` + initial Firestore profile document |
 | Email/Password Login | 🟢 IMPLEMENTED | `auth.signInWithEmailAndPassword()` + real error reporting |
-| Google Sign-In | 🟢 IMPLEMENTED | `auth.signInWithPopup(GoogleAuthProvider)` with redirect fallback |
+| Google Sign-In | 🟢 IMPLEMENTED | `auth.signInWithRedirect(GoogleAuthProvider)` on Capacitor native & `signInWithPopup` on web, backed by registered SHA-1 client ID `239783323113-mrginf621qi61nbrek9b23qde2u53g5j` |
 | Password Reset | 🟢 IMPLEMENTED | `auth.sendPasswordResetEmail()` sends email from Firebase Auth |
 | Email Verification | 🟢 IMPLEMENTED | `user.sendEmailVerification()` |
 | Session Persistence | ✅ VERIFIED | LocalStorage + IndexedDB native Firebase session management |

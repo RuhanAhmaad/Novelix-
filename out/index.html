@@ -988,6 +988,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // Check for redirect result from Google OAuth
+  auth.getRedirectResult().then((result) => {
+    if (result && result.user) {
+      showToast('✅ Google Authentication successful!', 'success');
+      closeAuthModal();
+    }
+  }).catch((err) => {
+    console.warn('Redirect auth result info:', err);
+    if (err && err.code && err.code !== 'auth/null-user') {
+      showToast(`❌ Google Sign-In: ${err.message}`, 'error');
+    }
+  });
+
   // Firebase Auth State Observer
   auth.onAuthStateChanged(async (firebaseUser) => {
     STATE.user = firebaseUser;
@@ -1130,21 +1143,30 @@ async function registerEmail() {
 async function loginGoogle() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
-    showToast('✅ Google Authentication successful!', 'success');
-    closeAuthModal();
-  } catch(error) {
-    // Fallback to redirect if popup is blocked in WebView
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithRedirect(provider);
-      } catch(redirectError) {
-        showToast(`❌ Google Sign-In: ${redirectError.message}`, 'error');
-      }
+    provider.addScope('email');
+    provider.addScope('profile');
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    // In Capacitor native WebView, popup windows are blocked by Google OAuth policy
+    const isCapacitor = window.Capacitor && (window.Capacitor.isNativePlatform ? window.Capacitor.isNativePlatform() : window.Capacitor.platform !== 'web');
+    if (isCapacitor) {
+      await auth.signInWithRedirect(provider);
     } else {
-      showToast(`❌ Google Sign-In: ${error.message}`, 'error');
+      try {
+        await auth.signInWithPopup(provider);
+        showToast('✅ Google Authentication successful!', 'success');
+        closeAuthModal();
+      } catch(popupErr) {
+        if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/operation-not-supported-in-this-environment') {
+          await auth.signInWithRedirect(provider);
+        } else {
+          throw popupErr;
+        }
+      }
     }
+  } catch(error) {
+    console.error('Google Sign-In error:', error);
+    showToast(`❌ Google Sign-In: ${error.message}`, 'error');
   }
 }
 

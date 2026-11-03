@@ -13,7 +13,20 @@
           "package_name": "com.novelix.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "239783323113-mrginf621qi61nbrek9b23qde2u53g5j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.novelix.app",
+            "certificate_hash": "8afaea9907a61bc404f03ab0437f9d86b4747fb3"
+          }
+        },
+        {
+          "client_id": "239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDzlkwY8Xcyyp-fh_JS_z2ob4xgc4YnLps"
@@ -21,7 +34,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
