@@ -1,1 +1,500 @@
-<!DOCTYPE html><html><head><title>NOVELIX</title></head><body style="background:#070709;color:#fff;">Loading NOVELIX...</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>NOVELIX — Publishing, Books & Manhwa Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              900: '#070709',
+              800: '#0e0e14',
+              700: '#181824',
+              600: '#26263a',
+              primary: '#8b5cf6',
+              accent: '#a855f7',
+              glow: '#c084fc'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #070709;
+      color: #f3f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      padding-bottom: 76px;
+    }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .glass {
+      background: rgba(14, 14, 20, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(139, 92, 246, 0.15);
+    }
+    .glass-card {
+      background: rgba(24, 24, 36, 0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+  </style>
+</head>
+<body class="bg-brand-900 text-gray-100 min-h-screen">
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-40 glass px-4 py-3 flex items-center justify-between border-b border-purple-900/30">
+    <div class="flex items-center space-x-2">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-violet-400 flex items-center justify-center font-black text-white text-base shadow-lg shadow-purple-500/30">N</div>
+      <span class="text-xl font-extrabold tracking-wider bg-gradient-to-r from-purple-400 via-violet-300 to-indigo-300 bg-clip-text text-transparent">NOVELIX</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button onclick="switchTab('explore')" class="p-2 rounded-full hover:bg-brand-700 text-gray-300">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      </button>
+      <button onclick="openPublishModal()" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center space-x-1 shadow-md shadow-purple-600/30">
+        <span>+ Publish</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main id="app-container" class="px-4 py-4 max-w-md mx-auto">
+
+    <!-- TAB 1: HOME -->
+    <div id="tab-home" class="space-y-6">
+
+      <!-- HERO BANNER -->
+      <div class="relative rounded-2xl overflow-hidden shadow-2xl border border-purple-500/20 group cursor-pointer" onclick="openReader(0)">
+        <img id="hero-cover" src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&q=80" alt="Featured" class="w-full h-56 object-cover transform group-hover:scale-105 transition duration-500">
+        <div class="absolute inset-0 bg-gradient-to-t from-brand-900 via-brand-900/60 to-transparent flex flex-col justify-end p-4">
+          <span class="inline-block px-2 py-0.5 rounded bg-purple-600/80 text-white text-[10px] font-bold uppercase tracking-wider mb-1 w-max">FEATURED MANHWA</span>
+          <h2 id="hero-title" class="text-xl font-bold text-white drop-shadow">Shadow Monarch Chronicles</h2>
+          <p id="hero-sub" class="text-xs text-purple-200 line-clamp-1 mb-3">Season 2: Awakening of the Gates & Void Monarchs</p>
+          <div class="flex items-center space-x-3">
+            <button class="px-4 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold flex items-center space-x-1 shadow-lg shadow-purple-600/40">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Read Now</span>
+            </button>
+            <span class="text-xs text-gray-400">★ 4.95 (1.2k reviews)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATEGORY PILLS -->
+      <div class="flex space-x-2 overflow-x-auto hide-scrollbar py-1">
+        <button onclick="filterGenre('All')" class="genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-purple-600 text-white whitespace-nowrap">All</button>
+        <button onclick="filterGenre('Fantasy')" class="genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-gray-300 hover:text-white whitespace-nowrap">Fantasy</button>
+        <button onclick="filterGenre('Action')" class="genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-gray-300 hover:text-white whitespace-nowrap">Action</button>
+        <button onclick="filterGenre('Manhwa')" class="genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-gray-300 hover:text-white whitespace-nowrap">Manhwa</button>
+        <button onclick="filterGenre('Romance')" class="genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-gray-300 hover:text-white whitespace-nowrap">Romance</button>
+        <button onclick="filterGenre('Historical')" class="genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-gray-300 hover:text-white whitespace-nowrap">Historical</button>
+        <button onclick="filterGenre('Science Fiction')" class="genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-gray-300 hover:text-white whitespace-nowrap">Sci-Fi</button>
+      </div>
+
+      <!-- TRENDING NOVELS -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>🔥</span>
+            <span>Trending Novels & Stories</span>
+          </h3>
+          <span class="text-xs text-purple-400 font-medium cursor-pointer" onclick="switchTab('explore')">See All</span>
+        </div>
+        <div id="trending-list" class="grid grid-cols-2 gap-3">
+          <!-- Cards populated by JS -->
+        </div>
+      </div>
+
+      <!-- POPULAR MANHWA & COMICS -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-base font-bold text-white flex items-center space-x-2">
+            <span>⚡</span>
+            <span>Popular Manhwa & Webtoons</span>
+          </h3>
+        </div>
+        <div id="manhwa-list" class="flex space-x-3 overflow-x-auto hide-scrollbar pb-2">
+          <!-- Cards populated by JS -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: EXPLORE -->
+    <div id="tab-explore" class="hidden space-y-4">
+      <div class="relative">
+        <input id="search-input" oninput="handleSearch(this.value)" type="text" placeholder="Search title, author, genre..." class="w-full px-4 py-2.5 pl-10 rounded-xl bg-brand-800 border border-purple-500/20 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500">
+        <svg class="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      </div>
+      <div id="search-results" class="space-y-3">
+        <!-- Results -->
+      </div>
+    </div>
+
+    <!-- TAB 3: LIBRARY -->
+    <div id="tab-library" class="hidden space-y-4">
+      <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+        <span>📚</span>
+        <span>My Personal Library</span>
+      </h2>
+      <div id="library-list" class="space-y-3">
+        <!-- Saved books -->
+      </div>
+    </div>
+
+    <!-- TAB 4: PUBLISH (STUDIO) -->
+    <div id="tab-publish" class="hidden space-y-4">
+      <div class="p-4 rounded-2xl glass-card border border-purple-500/30">
+        <h2 class="text-base font-bold text-purple-300 mb-1">✍️ Publishing Studio</h2>
+        <p class="text-xs text-gray-400 mb-4">Publish your books, novels, or webtoons to NOVELIX</p>
+
+        <form id="publish-form" onsubmit="handlePublish(event)" class="space-y-3">
+          <div>
+            <label class="text-xs font-semibold text-gray-300 block mb-1">Book Title *</label>
+            <input required id="pub-title" type="text" placeholder="e.g. Return of the Heavenly Blade" class="w-full px-3 py-2 rounded-lg bg-brand-800 border border-brand-600 text-xs text-white focus:outline-none focus:border-purple-500">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-300 block mb-1">Subtitle / Series</label>
+            <input id="pub-subtitle" type="text" placeholder="e.g. Volume 1: Origins" class="w-full px-3 py-2 rounded-lg bg-brand-800 border border-brand-600 text-xs text-white focus:outline-none focus:border-purple-500">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-xs font-semibold text-gray-300 block mb-1">Type *</label>
+              <select id="pub-type" class="w-full px-3 py-2 rounded-lg bg-brand-800 border border-brand-600 text-xs text-white focus:outline-none focus:border-purple-500">
+                <option value="novel">Novel</option>
+                <option value="manhwa">Manhwa</option>
+                <option value="manga">Manga</option>
+                <option value="comic">Comic</option>
+                <option value="educational">Educational</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-300 block mb-1">Primary Genre *</label>
+              <select id="pub-genre" class="w-full px-3 py-2 rounded-lg bg-brand-800 border border-brand-600 text-xs text-white focus:outline-none focus:border-purple-500">
+                <option>Fantasy</option>
+                <option>Action</option>
+                <option>Romance</option>
+                <option>Mystery</option>
+                <option>Science Fiction</option>
+                <option>Historical</option>
+                <option>Horror</option>
+                <option>Islamic Literature</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-300 block mb-1">Author Name *</label>
+            <input required id="pub-author" type="text" placeholder="Your author pseudonym" class="w-full px-3 py-2 rounded-lg bg-brand-800 border border-brand-600 text-xs text-white focus:outline-none focus:border-purple-500">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-300 block mb-1">Cover Image URL</label>
+            <input id="pub-cover" type="url" placeholder="https://... (or leave blank for auto cover)" class="w-full px-3 py-2 rounded-lg bg-brand-800 border border-brand-600 text-xs text-white focus:outline-none focus:border-purple-500">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-300 block mb-1">Synopsis / Description *</label>
+            <textarea required id="pub-desc" rows="3" placeholder="Write an engaging synopsis..." class="w-full px-3 py-2 rounded-lg bg-brand-800 border border-brand-600 text-xs text-white focus:outline-none focus:border-purple-500"></textarea>
+          </div>
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white font-bold text-xs shadow-lg shadow-purple-600/30 hover:opacity-95">
+            Publish Book to Platform
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- READER MODAL -->
+  <div id="reader-modal" class="fixed inset-0 z-50 bg-brand-900 hidden flex flex-col">
+    <!-- Reader Topbar -->
+    <div class="px-4 py-3 flex items-center justify-between border-b border-brand-700 bg-brand-800">
+      <button onclick="closeReader()" class="p-2 -ml-2 rounded-lg text-gray-300 hover:bg-brand-700 flex items-center space-x-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+        <span class="text-xs font-bold">Back</span>
+      </button>
+      <div class="text-center truncate px-2 max-w-[200px]">
+        <h4 id="reader-book-title" class="text-xs font-bold text-white truncate">Title</h4>
+        <span class="text-[10px] text-purple-300">Chapter 1: The Awakening</span>
+      </div>
+      <button onclick="toggleBookmarkCurrent()" id="btn-bookmark" class="p-2 rounded-lg text-gray-400 hover:text-purple-400">
+        <svg class="w-5 h-5 fill-none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
+      </button>
+    </div>
+
+    <!-- Reader Content Body -->
+    <div id="reader-body" class="flex-1 overflow-y-auto px-5 py-6 space-y-4 text-sm leading-relaxed text-gray-200">
+      <!-- Dynamic story content inserted here -->
+    </div>
+
+    <!-- Reader Bottom Controls -->
+    <div class="px-4 py-2 border-t border-brand-700 bg-brand-800/90 flex items-center justify-between text-xs text-gray-400">
+      <span>Chapter 1 of 24</span>
+      <div class="flex items-center space-x-4">
+        <button onclick="changeFontSize(-1)" class="p-1 px-2 rounded bg-brand-700 text-white font-bold">A-</button>
+        <button onclick="changeFontSize(1)" class="p-1 px-2 rounded bg-brand-700 text-white font-bold">A+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 glass border-t border-purple-900/30 px-6 py-2 flex items-center justify-between max-w-md mx-auto">
+    <button onclick="switchTab('home')" class="nav-btn flex flex-col items-center text-purple-400" data-tab="home">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+      <span class="text-[10px] font-semibold mt-0.5">Home</span>
+    </button>
+    <button onclick="switchTab('explore')" class="nav-btn flex flex-col items-center text-gray-400 hover:text-gray-200" data-tab="explore">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      <span class="text-[10px] font-semibold mt-0.5">Explore</span>
+    </button>
+    <button onclick="switchTab('library')" class="nav-btn flex flex-col items-center text-gray-400 hover:text-gray-200" data-tab="library">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+      <span class="text-[10px] font-semibold mt-0.5">Library</span>
+    </button>
+    <button onclick="switchTab('publish')" class="nav-btn flex flex-col items-center text-gray-400 hover:text-gray-200" data-tab="publish">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+      <span class="text-[10px] font-semibold mt-0.5">Publish</span>
+    </button>
+  </nav>
+
+  <!-- APP JAVASCRIPT LOGIC -->
+  <script>
+    const SAMPLE_BOOKS = [
+      {
+        id: 'b1',
+        title: 'Shadow Monarch Chronicles',
+        subtitle: 'Season 2: Awakening of the Gates',
+        cover_url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&q=80',
+        type: 'manhwa',
+        genre: 'Action',
+        author: 'Jin-Woo Art Studio',
+        rating: 4.95,
+        views: '89.4k',
+        content: `<h3>Prologue: The Shadow Descent</h3><p>The gates between the earthly realm and the subterranean abyss cracked open at dusk. A vortex of violet lightning tore through Seoul’s skyline, bathing the shattered asphalt in electric hues.</p><p>Standing atop the ruined communication spire, Kazen tightened his grip on the twin obsidian daggers. His shadow lengthened across the battlefield, expanding into a legion of spectral knights waiting for his whisper.</p><p>"Arise," he commanded.</p><p>From the fallen titan’s ashes, hundreds of glowing purple eyes ignited in unison. The Second Monarch War had begun.</p>`
+      },
+      {
+        id: 'b2',
+        title: 'The Midnight Castle',
+        subtitle: 'Eclipse of the Void (Book I)',
+        cover_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80',
+        type: 'novel',
+        genre: 'Fantasy',
+        author: 'Aria Sterling',
+        rating: 4.90,
+        views: '34.2k',
+        content: `<h3>Chapter 1: The Clockwork Tower</h3><p>Every century when the twin moons eclipsed the northern sun, the castle doors unlocked themselves. No mortal had ever returned from the seventh chamber alive.</p><p>Princess Elena pushed past the ivy-choked iron gates, her silver lantern flickering against the perpetual chill.</p>`
+      },
+      {
+        id: 'b3',
+        title: 'Echoes of the Silk Road',
+        subtitle: 'Lost Philosophers of the Golden Age',
+        cover_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&q=80',
+        type: 'educational',
+        genre: 'Historical',
+        author: 'Dr. Tariq Al-Mansoor',
+        rating: 4.88,
+        views: '18.2k',
+        content: `<h3>Chapter 1: The House of Wisdom</h3><p>In the heart of ninth-century Baghdad, along the banks of the Tigris, scholars from Cordoba to Samarkand gathered under domed celestial libraries to translate astronomy, medicine, and geometry into immortal codices.</p>`
+      },
+      {
+        id: 'b4',
+        title: 'Cyberpunk Neon Requiem',
+        subtitle: 'Underground Syndicate',
+        cover_url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=800&q=80',
+        type: 'comic',
+        genre: 'Science Fiction',
+        author: 'Elena Rostova',
+        rating: 4.82,
+        views: '42.1k',
+        content: `<h3>Act I: Neural Overload</h3><p>Rain drizzled through the holographic advertisements flickering in Sector 9. Maya adjusted her optic implants, tracking the corrupted data packet flashing at 240 terabytes per second.</p>`
+      }
+    ];
+
+    let currentActiveIndex = 0;
+    let savedLibrary = JSON.parse(localStorage.getItem('novelix_library') || '[]');
+    let currentFontSize = 14;
+
+    function renderBooks(filter = 'All') {
+      const trendingContainer = document.getElementById('trending-list');
+      const manhwaContainer = document.getElementById('manhwa-list');
+      
+      const filtered = filter === 'All' ? SAMPLE_BOOKS : SAMPLE_BOOKS.filter(b => b.genre.toLowerCase() === filter.toLowerCase() || b.type.toLowerCase() === filter.toLowerCase());
+
+      trendingContainer.innerHTML = filtered.map((b, idx) => `
+        <div onclick="openReader(${idx})" class="glass-card rounded-xl overflow-hidden cursor-pointer group hover:border-purple-500/40 transition">
+          <div class="relative h-44 overflow-hidden">
+            <img src="${b.cover_url}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <span class="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-brand-900/80 text-[10px] text-purple-300 font-bold border border-purple-500/30">★ ${b.rating}</span>
+          </div>
+          <div class="p-2.5">
+            <span class="text-[10px] uppercase font-bold text-purple-400 tracking-wider">${b.genre}</span>
+            <h4 class="text-xs font-bold text-white truncate mt-0.5">${b.title}</h4>
+            <p class="text-[10px] text-gray-400 truncate">${b.author}</p>
+          </div>
+        </div>
+      `).join('');
+
+      manhwaContainer.innerHTML = SAMPLE_BOOKS.map((b, idx) => `
+        <div onclick="openReader(${idx})" class="w-28 flex-shrink-0 cursor-pointer group">
+          <div class="h-36 rounded-lg overflow-hidden border border-brand-600 mb-1.5 relative">
+            <img src="${b.cover_url}" class="w-full h-full object-cover group-hover:scale-105 transition">
+            <span class="absolute bottom-1 left-1 bg-purple-600 text-[9px] px-1 rounded text-white font-semibold">${b.type}</span>
+          </div>
+          <h5 class="text-[11px] font-bold text-white truncate">${b.title}</h5>
+          <span class="text-[9px] text-gray-400 block">${b.views} reads</span>
+        </div>
+      `).join('');
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('#app-container > div').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.dataset.tab === tab) {
+          btn.classList.add('text-purple-400');
+          btn.classList.remove('text-gray-400');
+        } else {
+          btn.classList.remove('text-purple-400');
+          btn.classList.add('text-gray-400');
+        }
+      });
+
+      if (tab === 'library') renderLibrary();
+      if (tab === 'explore') handleSearch('');
+    }
+
+    function filterGenre(genre) {
+      document.querySelectorAll('.genre-pill').forEach(btn => {
+        if (btn.innerText.toLowerCase() === genre.toLowerCase()) {
+          btn.className = "genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-purple-600 text-white whitespace-nowrap";
+        } else {
+          btn.className = "genre-pill px-3 py-1.5 rounded-full text-xs font-medium bg-brand-700 text-gray-300 hover:text-white whitespace-nowrap";
+        }
+      });
+      renderBooks(genre);
+    }
+
+    function openReader(index) {
+      currentActiveIndex = index;
+      const b = SAMPLE_BOOKS[index];
+      document.getElementById('reader-book-title').innerText = b.title;
+      document.getElementById('reader-body').innerHTML = b.content;
+      document.getElementById('reader-modal').classList.remove('hidden');
+      updateBookmarkIcon();
+    }
+
+    function closeReader() {
+      document.getElementById('reader-modal').classList.add('hidden');
+    }
+
+    function toggleBookmarkCurrent() {
+      const b = SAMPLE_BOOKS[currentActiveIndex];
+      const existsIndex = savedLibrary.findIndex(item => item.id === b.id);
+      if (existsIndex > -1) {
+        savedLibrary.splice(existsIndex, 1);
+      } else {
+        savedLibrary.push(b);
+      }
+      localStorage.setItem('novelix_library', JSON.stringify(savedLibrary));
+      updateBookmarkIcon();
+    }
+
+    function updateBookmarkIcon() {
+      const b = SAMPLE_BOOKS[currentActiveIndex];
+      const isSaved = savedLibrary.some(item => item.id === b.id);
+      const btn = document.getElementById('btn-bookmark');
+      if (isSaved) {
+        btn.innerHTML = `<svg class="w-5 h-5 fill-purple-400 text-purple-400" viewBox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>`;
+      } else {
+        btn.innerHTML = `<svg class="w-5 h-5 fill-none text-gray-400" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>`;
+      }
+    }
+
+    function changeFontSize(delta) {
+      currentFontSize = Math.max(12, Math.min(22, currentFontSize + delta));
+      document.getElementById('reader-body').style.fontSize = currentFontSize + 'px';
+    }
+
+    function renderLibrary() {
+      const container = document.getElementById('library-list');
+      if (!savedLibrary.length) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-gray-400 space-y-2">
+            <span class="text-3xl">📖</span>
+            <p class="text-sm">Your library is currently empty.</p>
+            <p class="text-xs text-gray-500">Tap any book and bookmark it to save for offline reading.</p>
+          </div>
+        `;
+        return;
+      }
+      container.innerHTML = savedLibrary.map((b, i) => `
+        <div onclick="openReader(${SAMPLE_BOOKS.findIndex(x => x.id === b.id)})" class="glass-card p-3 rounded-xl flex items-center space-x-3 cursor-pointer">
+          <img src="${b.cover_url}" class="w-12 h-16 object-cover rounded-lg">
+          <div class="flex-1 truncate">
+            <h4 class="text-xs font-bold text-white truncate">${b.title}</h4>
+            <p class="text-[10px] text-gray-400">${b.author} • ${b.genre}</p>
+            <span class="text-[10px] text-purple-400 font-semibold">Ready for offline reading</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function handleSearch(query) {
+      const container = document.getElementById('search-results');
+      const q = (query || '').toLowerCase().trim();
+      const results = q ? SAMPLE_BOOKS.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q) || b.genre.toLowerCase().includes(q)) : SAMPLE_BOOKS;
+      container.innerHTML = results.map((b, idx) => `
+        <div onclick="openReader(${SAMPLE_BOOKS.findIndex(x => x.id === b.id)})" class="glass-card p-3 rounded-xl flex items-center space-x-3 cursor-pointer">
+          <img src="${b.cover_url}" class="w-12 h-16 object-cover rounded-lg">
+          <div class="flex-1 truncate">
+            <h4 class="text-xs font-bold text-white truncate">${b.title}</h4>
+            <p class="text-[10px] text-gray-400">${b.author} • <span class="text-purple-400">${b.genre}</span></p>
+            <span class="text-[10px] text-gray-500">★ ${b.rating} (${b.views} reads)</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openPublishModal() {
+      switchTab('publish');
+    }
+
+    function handlePublish(e) {
+      e.preventDefault();
+      const newBook = {
+        id: 'user_' + Date.now(),
+        title: document.getElementById('pub-title').value,
+        subtitle: document.getElementById('pub-subtitle').value || 'New Release',
+        cover_url: document.getElementById('pub-cover').value || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&q=80',
+        type: document.getElementById('pub-type').value,
+        genre: document.getElementById('pub-genre').value,
+        author: document.getElementById('pub-author').value,
+        rating: 5.0,
+        views: '1',
+        content: `<h3>Synopsis</h3><p>${document.getElementById('pub-desc').value}</p><p>Chapter 1 coming soon!</p>`
+      };
+      SAMPLE_BOOKS.unshift(newBook);
+      savedLibrary.unshift(newBook);
+      localStorage.setItem('novelix_library', JSON.stringify(savedLibrary));
+      alert('🎉 Publication published successfully! It is now in your library and discoverable.');
+      document.getElementById('publish-form').reset();
+      switchTab('home');
+      renderBooks('All');
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      renderBooks('All');
+    });
+  </script>
+</body>
+</html>
