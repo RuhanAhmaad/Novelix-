@@ -363,6 +363,163 @@ HTML_CONTENT = r"""<!DOCTYPE html>
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #262638; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #9270FF; }
+    /* Google Drive Premium Screen Styles */
+    .drive-connect-btn {
+      background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+      color: #fff;
+      font-weight: 700;
+      border-radius: 12px;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      transition: transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.15s ease;
+      box-shadow: 0 4px 18px rgba(66, 133, 244, 0.28);
+    }
+    .drive-connect-btn:active {
+      transform: scale3d(0.97, 0.97, 1);
+      opacity: 0.92;
+    }
+    .drive-account-card {
+      background: linear-gradient(135deg, #14141D 0%, #1B1B27 100%);
+      border: 1px solid rgba(66, 133, 244, 0.25);
+      border-radius: 14px;
+      transform: translateZ(0);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .drive-account-card:hover { border-color: rgba(66, 133, 244, 0.5); }
+    .drive-account-card .drive-status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #34A853;
+      box-shadow: 0 0 6px rgba(52, 168, 83, 0.6);
+      animation: driveStatusPulse 2.4s ease-in-out infinite;
+      will-change: opacity;
+    }
+    @keyframes driveStatusPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* Google logo brand colors */
+    .google-g-icon { flex-shrink: 0; }
+
+    /* Global Error Overlay */
+    #globalErrorOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(11,11,16,0.97);
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      text-align: center;
+      animation: pageFadeIn 0.25s ease;
+    }
+    #globalErrorOverlay.open { display: flex; }
+
+    /* Progress bar shimmer for Drive upload */
+    .drive-progress-bar {
+      height: 3px;
+      background: rgba(66,133,244,0.15);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .drive-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4285F4, #34A853, #4285F4);
+      background-size: 200% 100%;
+      animation: driveProgressShimmer 1.4s linear infinite;
+      border-radius: 3px;
+    }
+    @keyframes driveProgressShimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Stat card highlight */
+    .stat-card {
+      background: #14141D;
+      border: 1px solid #262638;
+      border-radius: 12px;
+      padding: 10px 6px;
+      text-align: center;
+      transition: border-color 0.2s ease;
+    }
+    .stat-card:hover { border-color: rgba(146,112,255,0.35); }
+
+    /* Hero gradient glow on cards */
+    .hero-glow {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-glow::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(11,11,16,0.9) 0%, rgba(11,11,16,0.1) 60%, transparent 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Smooth tab underline */
+    .tab-underline-active {
+      position: relative;
+    }
+    .tab-underline-active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0; right: 0;
+      height: 2px;
+      background: #9270FF;
+      border-radius: 2px;
+    }
+
+    /* File item in Drive picker */
+    .drive-file-item {
+      background: #14141D;
+      border: 1px solid #262638;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transform: translateZ(0);
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .drive-file-item:active {
+      border-color: rgba(66,133,244,0.5);
+      background: rgba(66,133,244,0.06);
+    }
+
+    /* Premium empty state illustration */
+    .empty-state-icon {
+      width: 56px; height: 56px;
+      background: rgba(146,112,255,0.08);
+      border: 1px solid rgba(146,112,255,0.18);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+    }
+
+    /* Section heading with decorative line */
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .section-heading::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 14px;
+      background: #9270FF;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -435,6 +592,31 @@ HTML_CONTENT = r"""<!DOCTYPE html>
      3. TOAST MESSAGES
 ═══════════════════════════════════════════════════════════ -->
 <div id="toastBar"><span id="toastText">Action completed</span></div>
+
+<!-- ════════════════════════════════════════════════════════
+     3B. GLOBAL ERROR OVERLAY — consistent error handling
+═══════════════════════════════════════════════════════════ -->
+<div id="globalErrorOverlay">
+  <div class="mb-6">
+    <div class="empty-state-icon" style="border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.06);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" class="w-7 h-7">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <h2 id="globalErrorTitle" class="font-display font-bold text-lg text-white mb-2">Something went wrong</h2>
+    <p id="globalErrorMessage" class="text-xs text-app-muted leading-relaxed max-w-xs mx-auto">An unexpected error occurred. Please try again.</p>
+    <p id="globalErrorCode" class="text-[10px] font-mono text-app-disabled mt-2 hidden"></p>
+  </div>
+  <div class="flex flex-col gap-2.5 w-full max-w-xs">
+    <button id="globalErrorRetryBtn" onclick="handleGlobalErrorRetry()" class="btn-primary text-xs py-3 font-semibold">
+      <span class="flex items-center justify-center gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+        Try Again
+      </span>
+    </button>
+    <button onclick="closeGlobalError(); switchPage('home')" class="btn-secondary text-xs py-2.5">Back to Home</button>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════
      4. MAIN VIEWS
@@ -791,6 +973,79 @@ HTML_CONTENT = r"""<!DOCTYPE html>
     </div>
   </section>
 
+  <!-- ── 4F. GOOGLE DRIVE DEDICATED HUB ── -->
+  <section id="page-drive" class="app-page">
+    <div class="px-4 pt-4 pb-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-display font-bold text-lg text-white">Google Drive Studio</h2>
+          <p class="text-xs text-app-muted">Connect multiple Drive accounts to import PDF manuscripts.</p>
+        </div>
+        <span class="pill-tag text-[10px]">Cloud Sync</span>
+      </div>
+
+      <!-- Drive Connection Box -->
+      <div class="surface-card p-4 space-y-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#4285F4,#34A853)">
+            <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white">
+              <path d="M12.01 1.99c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm-1.01 16.51l-4.5-4.5 1.41-1.41 3.09 3.09 7.09-7.09 1.41 1.41-8.5 8.5z"/>
+            </svg>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold text-white">Direct Cloud Import</h4>
+            <p class="text-[11px] text-app-muted">Supports personal & workspace Google Drive accounts.</p>
+          </div>
+        </div>
+
+        <button onclick="initiateGoogleDriveConnection()" class="drive-connect-btn w-full py-3 px-4 flex items-center justify-center gap-2 text-xs font-bold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Connect Google Drive Account
+        </button>
+      </div>
+
+      <!-- Connected Accounts List (Page View) -->
+      <div>
+        <div class="section-heading">
+          <span class="text-xs font-semibold text-white uppercase tracking-wider">Connected Accounts</span>
+        </div>
+        <div id="pageDriveAccountsList" class="space-y-2.5">
+          <div class="surface-card-static p-4 text-center text-xs text-app-muted">
+            No accounts connected yet. Tap the button above to link your Google Drive.
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick File Browser if account selected -->
+      <div id="pageDriveBrowserArea" class="hidden space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span id="pageDriveBrowserTitle" class="text-xs font-semibold text-white">Files in Drive</span>
+          <button onclick="refreshActiveDriveFiles()" class="text-[11px] text-app-primary">Refresh</button>
+        </div>
+        <div id="pageDriveFilesList" class="space-y-2"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4G. 404 PAGE NOT FOUND VIEW ── -->
+  <section id="page-notfound" class="app-page">
+    <div class="px-6 py-16 text-center space-y-4 max-w-sm mx-auto">
+      <div class="empty-state-icon" style="background:rgba(146,112,255,0.08); border-color:rgba(146,112,255,0.25); width:64px; height:64px;">
+        <span class="font-display font-black text-2xl text-app-primary">404</span>
+      </div>
+      <div>
+        <h2 class="font-display font-bold text-lg text-white mb-1.5">Page Not Found</h2>
+        <p class="text-xs text-app-muted leading-relaxed">
+          The requested screen or publication could not be located on this server.
+        </p>
+      </div>
+      <div class="flex flex-col gap-2 pt-2">
+        <button onclick="switchPage('home')" class="btn-primary text-xs py-2.5 font-semibold">Back to Home</button>
+        <button onclick="switchPage('explore')" class="btn-secondary text-xs py-2.5">Explore Catalog</button>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- ════════════════════════════════════════════════════════
@@ -879,28 +1134,88 @@ HTML_CONTENT = r"""<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- SECTION: CONNECTED SERVICES (GOOGLE DRIVE) -->
+      <!-- SECTION: CONNECTED SERVICES (GOOGLE DRIVE) — PREMIUM REDESIGN -->
       <div id="settingsSec-drive" class="settings-section hidden space-y-4">
-        <div class="surface-card-static p-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xs font-semibold text-white">Google Drive Integration</h4>
-            <span class="text-[10px] text-app-secondary">Official Drive API</span>
+
+        <!-- Section header -->
+        <div class="flex items-center gap-3 px-1 mb-1">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#4285F4,#34A853)">
+            <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
           </div>
-          <p class="text-xs text-app-muted">Connect your Google Drive account to import manuscripts, books, and PDFs directly into the publishing studio.</p>
-          
-          <button onclick="initiateGoogleDriveConnection()" class="btn-primary text-xs w-full py-2.5 flex items-center justify-center gap-2">
-            <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current"><path d="M12.01 1.99c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm-1.01 16.51l-4.5-4.5 1.41-1.41 3.09 3.09 7.09-7.09 1.41 1.41-8.5 8.5z"/></svg>
-            Connect Google Drive Account
-          </button>
+          <div>
+            <h4 class="text-sm font-display font-bold text-white">Google Drive</h4>
+            <p class="text-[10px] text-app-muted">Import manuscripts, books, and PDFs</p>
+          </div>
         </div>
 
-        <!-- Connected Accounts List -->
-        <div>
-          <h4 class="text-xs font-semibold text-app-muted uppercase tracking-wider mb-2">Connected Accounts</h4>
-          <div id="connectedDriveList" class="space-y-2">
-            <div class="surface-card-static p-3 text-center text-xs text-app-muted">No Google Drive accounts connected yet.</div>
+        <!-- Connect button -->
+        <button id="driveConnectMainBtn" onclick="initiateGoogleDriveConnection()" class="drive-connect-btn w-full py-3.5 px-4 flex items-center justify-center gap-3 text-sm font-bold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Connect Google Drive Account
+        </button>
+        <p class="text-[11px] text-app-muted text-center leading-relaxed px-2">
+          Securely authorised via Google OAuth 2.0 — your Drive password is never shared with NOVELIX.
+        </p>
+
+        <!-- Loading state -->
+        <div id="driveAccountsLoading" class="hidden space-y-2.5">
+          <div class="skeleton-box h-16 rounded-xl"></div>
+          <div class="skeleton-box h-16 rounded-xl opacity-60"></div>
+        </div>
+
+        <!-- Connected accounts list -->
+        <div id="connectedDriveSection">
+          <div class="section-heading">
+            <span class="text-xs font-semibold text-white uppercase tracking-wider">Connected Accounts</span>
+          </div>
+          <div id="connectedDriveList" class="space-y-2.5">
+            <!-- Empty state -->
+            <div class="drive-empty-state text-center py-8">
+              <div class="empty-state-icon" style="background:rgba(66,133,244,0.06); border-color:rgba(66,133,244,0.15);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="1.5" class="w-6 h-6">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
+              <p class="text-xs font-semibold text-white mb-1">No accounts connected</p>
+              <p class="text-[11px] text-app-muted">Tap the button above to link your Google Drive and import PDFs directly.</p>
+            </div>
           </div>
         </div>
+
+        <!-- Drive error state -->
+        <div id="driveErrorState" class="hidden surface-card-static p-4 border-red-500/20" style="border-color:rgba(239,68,68,0.2);">
+          <div class="flex items-center gap-2.5 mb-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" class="w-4 h-4 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p class="text-xs font-semibold text-white">Connection Error</p>
+          </div>
+          <p id="driveErrorMsg" class="text-[11px] text-red-400 mb-3"></p>
+          <button onclick="loadConnectedDriveAccounts()" class="btn-secondary text-[11px] px-3 py-1.5">Retry</button>
+        </div>
+
+        <!-- How it works info card -->
+        <div class="surface-card-static p-4 space-y-2">
+          <h5 class="text-xs font-semibold text-white mb-2">How it works</h5>
+          <div class="flex items-start gap-2.5">
+            <div class="w-5 h-5 rounded-full bg-app-primary/10 text-app-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">1</div>
+            <p class="text-[11px] text-app-muted">Tap <strong class="text-white">Connect Google Drive Account</strong> — your browser opens Google's secure login page.</p>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <div class="w-5 h-5 rounded-full bg-app-primary/10 text-app-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">2</div>
+            <p class="text-[11px] text-app-muted">Sign in with your Google account and grant read-only Drive access.</p>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <div class="w-5 h-5 rounded-full bg-app-primary/10 text-app-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">3</div>
+            <p class="text-[11px] text-app-muted">NOVELIX returns to the app — your Drive account appears here instantly.</p>
+          </div>
+        </div>
+
       </div>
 
       <!-- SECTION: STORAGE & PUBLISHING -->
@@ -1011,20 +1326,54 @@ HTML_CONTENT = r"""<!DOCTYPE html>
 </div>
 
 <!-- ════════════════════════════════════════════════════════
-     7. GOOGLE DRIVE FILE PICKER MODAL
+     7. GOOGLE DRIVE FILE PICKER MODAL (ENHANCED)
 ═══════════════════════════════════════════════════════════ -->
 <div id="drivePickerModal" class="modal-backdrop" onclick="if(event.target===this)closeDrivePickerModal()">
-  <div class="modal-sheet h-[80vh]">
-    <div class="px-4 py-3 border-b border-app-border flex items-center justify-between">
-      <h3 class="font-display font-bold text-sm text-white flex items-center gap-2">
-        <svg viewBox="0 0 24 24" class="w-4 h-4 fill-app-primary"><path d="M12.01 1.99c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm-1.01 16.51l-4.5-4.5 1.41-1.41 3.09 3.09 7.09-7.09 1.41 1.41-8.5 8.5z"/></svg>
-        Select PDF from Google Drive
-      </h3>
+  <div class="modal-sheet h-[85vh]">
+    <div class="px-4 py-3 border-b border-app-border flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-[#4285F4]">
+            <path d="M12.01 1.99c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm-1.01 16.51l-4.5-4.5 1.41-1.41 3.09 3.09 7.09-7.09 1.41 1.41-8.5 8.5z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-sm text-white">Google Drive Files</h3>
+          <p id="drivePickerAccountSubtitle" class="text-[10px] text-app-muted">Browse & import manuscripts</p>
+        </div>
+      </div>
       <button onclick="closeDrivePickerModal()" class="w-7 h-7 rounded-full surface-card flex items-center justify-center text-app-muted hover:text-white">✕</button>
     </div>
-    <div class="p-3 border-b border-app-border">
-      <input type="text" id="driveSearchInput" placeholder="Filter Drive files..." class="w-full px-3 py-2 text-xs" oninput="filterDriveFileList(this.value)">
+
+    <!-- Multi-Account Selector (if multiple accounts connected) -->
+    <div id="driveMultiAccountRow" class="hidden px-4 py-2 bg-app-sub border-b border-app-border flex items-center justify-between">
+      <span class="text-[11px] text-app-muted">Active Account:</span>
+      <select id="driveAccountPickerSelect" onchange="switchDrivePickerAccount(this.value)" class="text-xs px-2 py-1 rounded bg-app-surface border border-app-border text-white">
+      </select>
     </div>
+
+    <!-- Search filter bar -->
+    <div class="p-3 border-b border-app-border flex-shrink-0">
+      <div class="relative">
+        <input type="text" id="driveSearchInput" placeholder="Filter PDF files in Drive..." class="w-full pl-8 pr-3 py-2 text-xs rounded-xl" oninput="filterDriveFileList(this.value)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-app-muted absolute left-2.5 top-2.5">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Import progress bar (hidden by default) -->
+    <div id="driveImportProgressBar" class="hidden px-4 py-2.5 bg-blue-500/10 border-b border-blue-500/20">
+      <div class="flex items-center justify-between mb-1.5 text-[11px]">
+        <span id="driveImportProgressText" class="text-white font-medium">Importing PDF from Drive...</span>
+        <span class="text-blue-400 font-mono">Syncing</span>
+      </div>
+      <div class="drive-progress-bar">
+        <div class="drive-progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Files Container -->
     <div id="driveFilesContainer" class="p-4 overflow-y-auto flex-1 space-y-2">
       <!-- Drive files rendered here -->
     </div>
@@ -2018,9 +2367,21 @@ async function initiateGoogleDriveConnection() {
 
 // ── Load Connected Drive Accounts ───────────────────────
 async function loadConnectedDriveAccounts() {
-  if (!APP_STATE.user) return;
   const listEl = document.getElementById('connectedDriveList');
-  if (!listEl) return;
+  const pageListEl = document.getElementById('pageDriveAccountsList');
+  const loadingEl = document.getElementById('driveAccountsLoading');
+  const errorEl = document.getElementById('driveErrorState');
+
+  if (!APP_STATE.user) {
+    const unauthHtml = `<div class="surface-card-static p-4 text-center text-xs text-app-muted">Please sign in to view connected Google Drive accounts.</div>`;
+    if (listEl) listEl.innerHTML = unauthHtml;
+    if (pageListEl) pageListEl.innerHTML = unauthHtml;
+    if (loadingEl) loadingEl.classList.add('hidden');
+    return;
+  }
+
+  if (loadingEl) loadingEl.classList.remove('hidden');
+  if (errorEl) errorEl.classList.add('hidden');
 
   try {
     let accounts = [];
@@ -2045,27 +2406,70 @@ async function loadConnectedDriveAccounts() {
     }
 
     APP_STATE.connectedDriveAccounts = accounts;
+    if (loadingEl) loadingEl.classList.add('hidden');
 
-    if (!accounts.length) {
-      listEl.innerHTML = `<div class="surface-card-static p-3 text-center text-xs text-app-muted">No Google Drive accounts connected yet.</div>`;
-      return;
+    // Update Multi-Account Picker in Modal
+    const multiRow = document.getElementById('driveMultiAccountRow');
+    const multiSelect = document.getElementById('driveAccountPickerSelect');
+    if (multiRow && multiSelect) {
+      if (accounts.length > 1) {
+        multiRow.classList.remove('hidden');
+        multiSelect.innerHTML = accounts.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.email)}</option>`).join('');
+      } else {
+        multiRow.classList.add('hidden');
+      }
     }
 
-    listEl.innerHTML = accounts.map(acc => `
-      <div class="surface-card p-3 flex items-center justify-between">
-        <div class="truncate">
-          <p class="text-xs font-semibold text-white truncate">${escapeHtml(acc.email)}</p>
-          <span class="text-[10px] text-emerald-400">Connected • Ready to Import</span>
+    const renderCard = (acc) => `
+      <div class="drive-account-card p-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-3 truncate">
+          <div class="w-9 h-9 rounded-full bg-app-surface border border-app-border flex items-center justify-center flex-shrink-0 text-white font-bold text-xs overflow-hidden">
+            ${acc.picture ? `<img src="${escapeHtml(acc.picture)}" class="w-full h-full object-cover" alt="Avatar">` : (acc.email ? escapeHtml(acc.email[0].toUpperCase()) : 'G')}
+          </div>
+          <div class="truncate">
+            <div class="flex items-center gap-1.5">
+              <span class="drive-status-dot"></span>
+              <p class="text-xs font-semibold text-white truncate">${escapeHtml(acc.email || acc.name || 'Connected Drive')}</p>
+            </div>
+            <p class="text-[10px] text-app-muted mt-0.5">Active • Read-only access</p>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button onclick="browseDriveAccountFiles('${acc.id}')" class="btn-secondary text-[11px] px-2.5 py-1">Browse Files</button>
-          <button onclick="disconnectDriveAccount('${acc.id}')" class="text-xs text-red-400 p-1 hover:text-red-300">✕</button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button onclick="browseDriveAccountFiles('${escapeHtml(acc.id)}')" class="btn-primary text-[11px] px-3 py-1.5 flex items-center gap-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Browse
+          </button>
+          <button onclick="disconnectDriveAccount('${escapeHtml(acc.id)}')" title="Disconnect account" class="w-7 h-7 rounded-lg surface-card text-red-400 hover:text-red-300 flex items-center justify-center text-xs">
+            ✕
+          </button>
         </div>
       </div>
-    `).join('');
+    `;
+
+    const emptyHtml = `
+      <div class="drive-empty-state text-center py-6">
+        <div class="empty-state-icon" style="background:rgba(66,133,244,0.06); border-color:rgba(66,133,244,0.15);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="1.5" class="w-6 h-6">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <p class="text-xs font-semibold text-white mb-1">No accounts connected</p>
+        <p class="text-[11px] text-app-muted">Connect your Google Drive account above to import manuscripts directly.</p>
+      </div>
+    `;
+
+    const renderedCards = accounts.length ? accounts.map(renderCard).join('') : emptyHtml;
+    if (listEl) listEl.innerHTML = renderedCards;
+    if (pageListEl) pageListEl.innerHTML = renderedCards;
+
   } catch (e) {
     console.error('[NOVELIX Drive] loadConnectedDriveAccounts error:', e);
-    if (listEl) listEl.innerHTML = `<div class="surface-card-static p-3 text-center text-xs text-red-400">Error loading accounts. Please try again.</div>`;
+    if (loadingEl) loadingEl.classList.add('hidden');
+    if (errorEl) {
+      errorEl.classList.remove('hidden');
+      const msgEl = document.getElementById('driveErrorMsg');
+      if (msgEl) msgEl.textContent = 'Could not load connected Drive accounts. Please check your network and retry.';
+    }
   }
 }
 
@@ -2093,11 +2497,26 @@ async function disconnectDriveAccount(accId) {
 // ── Browse Drive Account Files ───────────────────────────
 async function browseDriveAccountFiles(accId) {
   let acc = APP_STATE.connectedDriveAccounts.find(a => a.id === accId);
-  if (!acc) return;
+  if (!acc && APP_STATE.connectedDriveAccounts.length) {
+    acc = APP_STATE.connectedDriveAccounts[0];
+    accId = acc.id;
+  }
+  if (!acc) {
+    showToast('Please connect a Google Drive account first');
+    return;
+  }
+
+  APP_STATE._activeAccountId = accId;
+  const subtitle = document.getElementById('drivePickerAccountSubtitle');
+  if (subtitle) subtitle.textContent = acc.email || 'Browse & import manuscripts';
 
   openDrivePickerModal();
   const container = document.getElementById('driveFilesContainer');
-  container.innerHTML = `<div class="skeleton-box h-12 mb-2"></div><div class="skeleton-box h-12"></div>`;
+  container.innerHTML = `
+    <div class="skeleton-box h-14 mb-2"></div>
+    <div class="skeleton-box h-14 mb-2"></div>
+    <div class="skeleton-box h-14"></div>
+  `;
 
   // Strategy 1: Backend callable listGoogleDriveFiles
   if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
@@ -2106,9 +2525,9 @@ async function browseDriveAccountFiles(accId) {
       const res = await listFn({ accountId: accId });
       if (res && res.data && res.data.files) {
         APP_STATE.activeDriveFiles = res.data.files;
-        APP_STATE._activeAccountId = accId;
         APP_STATE._activeDriveToken = res.data.accessToken || acc.accessToken;
         renderDriveFilesList(APP_STATE.activeDriveFiles, APP_STATE._activeDriveToken);
+        updatePageDriveBrowser(APP_STATE.activeDriveFiles, acc.email);
         return;
       }
     } catch(backendErr) {
@@ -2120,7 +2539,7 @@ async function browseDriveAccountFiles(accId) {
   let token = acc.accessToken;
   if (!token && typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
     try {
-      showToast('Fetching Drive access credentials...');
+      showToast('Refreshing Drive credentials...');
       const getTokenFn = functions.httpsCallable('getGoogleDriveAccessToken');
       const res = await getTokenFn({ accountId: accId });
       if (res.data && res.data.accessToken) {
@@ -2133,9 +2552,13 @@ async function browseDriveAccountFiles(accId) {
   }
 
   if (!token) {
-    closeDrivePickerModal();
-    showToast('Drive session expired. Please reconnect your account.');
-    initiateGoogleDriveConnection();
+    container.innerHTML = `
+      <div class="surface-card-static p-6 text-center space-y-2">
+        <p class="text-xs text-amber-400 font-semibold">Session authorization required</p>
+        <p class="text-[11px] text-app-muted">Google authorization token expired or not stored locally.</p>
+        <button onclick="initiateGoogleDriveConnection()" class="btn-primary text-xs px-4 py-2 mt-2">Reconnect Drive</button>
+      </div>
+    `;
     return;
   }
 
@@ -2146,39 +2569,102 @@ async function browseDriveAccountFiles(accId) {
 
     if (res.status === 401) {
       await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).update({ accessToken: null }).catch(() => {});
-      container.innerHTML = `<div class="p-4 text-center text-xs text-yellow-400">Session expired. <button onclick="closeDrivePickerModal(); initiateGoogleDriveConnection();" class="underline">Reconnect Google Drive</button></div>`;
+      container.innerHTML = `
+        <div class="surface-card-static p-6 text-center space-y-2">
+          <p class="text-xs text-amber-400 font-semibold">Authorization token expired</p>
+          <p class="text-[11px] text-app-muted">Your Google Drive session has expired. Re-authenticate to continue.</p>
+          <button onclick="initiateGoogleDriveConnection()" class="btn-primary text-xs px-4 py-2 mt-2">Reconnect Drive</button>
+        </div>
+      `;
       return;
     }
 
     const data = await res.json();
     APP_STATE.activeDriveFiles = data.files || [];
-    APP_STATE._activeAccountId = accId;
     APP_STATE._activeDriveToken = token;
     renderDriveFilesList(APP_STATE.activeDriveFiles, token);
+    updatePageDriveBrowser(APP_STATE.activeDriveFiles, acc.email);
   } catch(e) {
-    container.innerHTML = `<div class="p-4 text-center text-xs text-red-400">Error loading Drive files: ${escapeHtml(e.message)}</div>`;
+    container.innerHTML = `
+      <div class="surface-card-static p-6 text-center space-y-2">
+        <p class="text-xs text-red-400 font-semibold">Failed to load files</p>
+        <p class="text-[11px] text-app-muted">Check your internet connection and try again.</p>
+        <button onclick="browseDriveAccountFiles('${escapeHtml(accId)}')" class="btn-secondary text-xs px-3 py-1.5 mt-2">Retry</button>
+      </div>
+    `;
+  }
+}
+
+function switchDrivePickerAccount(accId) {
+  browseDriveAccountFiles(accId);
+}
+
+function updatePageDriveBrowser(files, email) {
+  const area = document.getElementById('pageDriveBrowserArea');
+  const title = document.getElementById('pageDriveBrowserTitle');
+  const list = document.getElementById('pageDriveFilesList');
+  if (!area || !list) return;
+
+  area.classList.remove('hidden');
+  if (title) title.textContent = `Files in ${email || 'Google Drive'}`;
+
+  if (!files || !files.length) {
+    list.innerHTML = `<div class="surface-card-static p-4 text-center text-xs text-app-muted">No PDF documents found in this account.</div>`;
+    return;
+  }
+
+  list.innerHTML = files.slice(0, 10).map(f => {
+    const sizeMB = f.size ? (f.size / (1024 * 1024)).toFixed(1) + ' MB' : 'PDF';
+    return `
+      <div class="drive-file-item">
+        <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0 text-red-400 font-bold text-[10px]">PDF</div>
+        <div class="truncate flex-1">
+          <p class="text-xs font-semibold text-white truncate">${escapeHtml(f.name)}</p>
+          <p class="text-[10px] text-app-muted">${sizeMB}</p>
+        </div>
+        <button onclick="importDriveFileToStudio('${f.id}', '${escapeHtml(f.name)}', ${f.size || 0}, '${APP_STATE._activeDriveToken}')" class="btn-primary text-[11px] px-3 py-1.5 flex-shrink-0">
+          Import
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function refreshActiveDriveFiles() {
+  if (APP_STATE._activeAccountId) {
+    browseDriveAccountFiles(APP_STATE._activeAccountId);
   }
 }
 
 function renderDriveFilesList(files, token) {
   const container = document.getElementById('driveFilesContainer');
+  if (!container) return;
+
   if (!files.length) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-app-muted">No PDF documents found in this Drive account.</div>`;
+    container.innerHTML = `
+      <div class="drive-empty-state text-center py-8">
+        <div class="empty-state-icon" style="background:rgba(239,68,68,0.06); border-color:rgba(239,68,68,0.2);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.5" class="w-6 h-6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <p class="text-xs font-semibold text-white mb-1">No PDF files found</p>
+        <p class="text-[11px] text-app-muted">Make sure your manuscripts are saved as PDF format in your Google Drive.</p>
+      </div>
+    `;
     return;
   }
 
   container.innerHTML = files.map(f => {
     const sizeMB = f.size ? (f.size / (1024 * 1024)).toFixed(1) + ' MB' : 'PDF';
     return `
-      <div class="surface-card p-3 flex items-center justify-between">
-        <div class="truncate flex items-center gap-2.5">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-app-primary flex-shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <div class="truncate">
-            <h5 class="font-display font-medium text-xs text-white truncate">${escapeHtml(f.name)}</h5>
-            <span class="text-[10px] text-app-muted">${sizeMB}</span>
-          </div>
+      <div class="drive-file-item">
+        <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0 text-red-400 font-bold text-[10px]">PDF</div>
+        <div class="truncate flex-1">
+          <h5 class="font-display font-medium text-xs text-white truncate">${escapeHtml(f.name)}</h5>
+          <span class="text-[10px] text-app-muted">${sizeMB}</span>
         </div>
-        <button onclick="importDriveFileToStudio('${f.id}', '${escapeHtml(f.name)}', ${f.size || 0}, '${token}')" class="btn-primary text-[11px] px-3 py-1 flex-shrink-0">Import</button>
+        <button onclick="importDriveFileToStudio('${f.id}', '${escapeHtml(f.name)}', ${f.size || 0}, '${token}')" class="btn-primary text-[11px] px-3 py-1 flex-shrink-0">
+          Import
+        </button>
       </div>
     `;
   }).join('');
@@ -2201,9 +2687,25 @@ function openDrivePickerForPublish() {
 }
 
 async function importDriveFileToStudio(fileId, fileName, fileSize, token) {
-  closeDrivePickerModal();
-  switchPage('publish');
+  const progressBar = document.getElementById('driveImportProgressBar');
+  const progressText = document.getElementById('driveImportProgressText');
+  if (progressBar) progressBar.classList.remove('hidden');
+  if (progressText) progressText.textContent = `Importing "${fileName}"...`;
+
   showToast(`Importing "${fileName}" from Google Drive...`);
+
+  const finishImportSuccess = (sourceLabel) => {
+    if (progressBar) progressBar.classList.add('hidden');
+    closeDrivePickerModal();
+    switchPage('publish');
+    recalculateStorageQuota();
+    showToast(`Manuscript "${fileName}" imported into studio (${sourceLabel})`);
+  };
+
+  const handleImportError = (err) => {
+    if (progressBar) progressBar.classList.add('hidden');
+    showGlobalError('IMPORT_FAILED', `Could not import "${fileName}" from Google Drive. Please verify the file is accessible and under quota.`, 'DRIVE_IMPORT_ERR', () => importDriveFileToStudio(fileId, fileName, fileSize, token));
+  };
 
   // Strategy 1: Backend importGoogleDrivePdf
   if (APP_STATE._activeAccountId && typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
@@ -2222,8 +2724,7 @@ async function importDriveFileToStudio(fileId, fileName, fileSize, token) {
         const label = document.getElementById(`edFileLabel-${idx}`);
         const sizeMB = fileSize ? (fileSize / (1024*1024)).toFixed(1) + ' MB' : 'Cloud';
         if (label) label.textContent = `[Drive Cloud] ${fileName} (${sizeMB})`;
-        recalculateStorageQuota();
-        showToast('Manuscript imported successfully into Publishing Studio');
+        finishImportSuccess('Cloud Reference');
         return;
       }
     } catch(bErr) {
@@ -2236,20 +2737,20 @@ async function importDriveFileToStudio(fileId, fileName, fileSize, token) {
     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
       headers: { Authorization: `Bearer ${token}` }
     });
+    if (!res.ok) throw new Error(`Google Drive download error HTTP ${res.status}`);
     const blob = await res.blob();
     const importedFile = new File([blob], fileName, { type: 'application/pdf' });
 
-    // Append as a new language edition row
     const idx = APP_STATE.publishEditions.length;
     addEditionRow();
     APP_STATE.publishEditions[idx].file = importedFile;
     const label = document.getElementById(`edFileLabel-${idx}`);
     if (label) label.textContent = `[Drive] ${fileName} (${(importedFile.size / (1024*1024)).toFixed(1)} MB)`;
 
-    recalculateStorageQuota();
-    showToast('Manuscript imported successfully into Publishing Studio');
+    finishImportSuccess('Downloaded');
   } catch(e) {
-    showToast(`Drive import error: ${e.message}`);
+    console.error('Import error:', e);
+    handleImportError(e);
   }
 }
 
@@ -3509,7 +4010,13 @@ function switchPage(pageId) {
   document.querySelectorAll('.app-page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => { n.style.color = '#9693A4'; });
 
-  const targetPage = document.getElementById(`page-${pageId}`);
+  let targetPage = document.getElementById(`page-${pageId}`);
+  if (!targetPage) {
+    // Graceful in-app 404 Page Not Found fallback
+    targetPage = document.getElementById('page-notfound');
+    pageId = 'notfound';
+  }
+
   if (targetPage) targetPage.classList.add('active');
 
   const targetNav = document.getElementById(`nav-${pageId}`);
@@ -3521,9 +4028,118 @@ function switchPage(pageId) {
   if (pageId === 'profile') loadProfileContent();
   if (pageId === 'publish') updatePublishAccessState();
   if (pageId === 'explore') renderExploreGridView();
+  if (pageId === 'drive') loadConnectedDriveAccounts();
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+// ────────────────────────────────────────────────────────
+// ERROR HANDLING SYSTEM
+// ────────────────────────────────────────────────────────
+const ERROR_CATALOG = {
+  NOT_FOUND: {
+    title: 'Page Not Found',
+    message: 'The requested screen, chapter, or publication does not exist on this server.',
+    code: 'ERR_404_NOT_FOUND'
+  },
+  OFFLINE: {
+    title: 'No Internet Connection',
+    message: 'Unable to reach NOVELIX cloud services. Please check your network connection and retry.',
+    code: 'ERR_NETWORK_OFFLINE'
+  },
+  AUTH_FAILED: {
+    title: 'Authentication Required',
+    message: 'Your session has expired or requires sign in. Please sign in to access your publications and library.',
+    code: 'ERR_AUTH_REQUIRED'
+  },
+  OAUTH_ERROR: {
+    title: 'Google Authorization Issue',
+    message: 'Google Drive authorization was denied, cancelled, or encountered an origin mismatch. Please ensure authorization is completed in your system browser.',
+    code: 'ERR_OAUTH_FAILED'
+  },
+  MISSING_FUNCTIONS: {
+    title: 'Cloud Function Unavailable',
+    message: 'The requested cloud operation is currently pending deployment. Please check back shortly.',
+    code: 'ERR_FUNCTION_404'
+  },
+  PERMISSION_DENIED: {
+    title: 'Permission Denied',
+    message: 'You do not have administrative or author credentials to perform this operation.',
+    code: 'ERR_FORBIDDEN_403'
+  },
+  IMPORT_FAILED: {
+    title: 'PDF Import Failed',
+    message: 'Could not import the selected manuscript from Google Drive. Please verify the file is accessible and under quota limits.',
+    code: 'ERR_DRIVE_IMPORT'
+  },
+  SERVER_ERROR: {
+    title: 'Cloud Service Unavailable',
+    message: 'A server error occurred while communicating with the cloud backend. Please retry shortly.',
+    code: 'ERR_SERVER_500'
+  }
+};
+
+let _activeErrorRetryCallback = null;
+
+function showGlobalError(typeOrTitle, message, code, retryFn) {
+  const overlay = document.getElementById('globalErrorOverlay');
+  if (!overlay) return;
+
+  const catalogEntry = ERROR_CATALOG[typeOrTitle];
+  const title = catalogEntry ? catalogEntry.title : (typeOrTitle || 'Something went wrong');
+  const msg = message || (catalogEntry ? catalogEntry.message : 'An unexpected error occurred. Please try again.');
+  const errCode = code || (catalogEntry ? catalogEntry.code : '');
+
+  const titleEl = document.getElementById('globalErrorTitle');
+  const msgEl = document.getElementById('globalErrorMessage');
+  const codeEl = document.getElementById('globalErrorCode');
+  if (titleEl) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = msg;
+
+  if (codeEl) {
+    if (errCode) {
+      codeEl.textContent = `Code: ${errCode}`;
+      codeEl.classList.remove('hidden');
+    } else {
+      codeEl.classList.add('hidden');
+    }
+  }
+
+  _activeErrorRetryCallback = (typeof retryFn === 'function') ? retryFn : null;
+  const retryBtn = document.getElementById('globalErrorRetryBtn');
+  if (retryBtn) {
+    retryBtn.style.display = _activeErrorRetryCallback ? 'block' : 'none';
+  }
+
+  overlay.classList.add('open');
+}
+
+function closeGlobalError() {
+  const overlay = document.getElementById('globalErrorOverlay');
+  if (overlay) overlay.classList.remove('open');
+  _activeErrorRetryCallback = null;
+}
+
+function handleGlobalErrorRetry() {
+  const cb = _activeErrorRetryCallback;
+  closeGlobalError();
+  if (typeof cb === 'function') {
+    try { cb(); } catch(e) { console.error('Error during retry:', e); }
+  }
+}
+
+// Global safety listener to prevent exposing raw stack traces to normal users
+window.addEventListener('error', (event) => {
+  console.error('[NOVELIX Error Caught]', event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[NOVELIX Promise Rejection]', event.reason);
+  const reason = event.reason ? String(event.reason.message || event.reason) : '';
+  if (reason.includes('Failed to fetch') || reason.includes('NetworkError')) {
+    showToast('Network offline — displaying cached data');
+  }
+});
 
 // ────────────────────────────────────────────────────────
 // UTILITIES

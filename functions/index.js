@@ -526,16 +526,19 @@ exports.googleDriveCallback = onRequest({ secrets: [googleDriveOAuthClientJson] 
 
   let uid = null;
   let redirectUri = CANONICAL_DRIVE_REDIRECT_URI;
+  // Hoisted so we can guard the duplicate-delete below
+  let sessionRef = null;
 
   // 1. Check Firestore session
   try {
-    const sessionRef = db.collection('drive_oauth_sessions').doc(state);
+    sessionRef = db.collection('drive_oauth_sessions').doc(state);
     const sessionDoc = await sessionRef.get();
     if (sessionDoc.exists) {
       const session = sessionDoc.data();
       uid = session.uid;
       redirectUri = session.redirectUri || CANONICAL_DRIVE_REDIRECT_URI;
       await sessionRef.delete();
+      sessionRef = null; // already deleted
     }
   } catch (err) {
     console.warn('Session doc lookup skipped:', err.message);
@@ -639,8 +642,10 @@ exports.googleDriveCallback = onRequest({ secrets: [googleDriveOAuthClientJson] 
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
 
-    // 3. Clean up one-time session
-    await sessionRef.delete();
+    // 3. Clean up one-time session (if not already deleted above)
+    if (sessionRef) {
+      try { await sessionRef.delete(); } catch(e) {}
+    }
 
     // 4. Audit log
     await db.collection('admin_logs').add({
