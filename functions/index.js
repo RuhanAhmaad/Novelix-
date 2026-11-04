@@ -521,17 +521,44 @@ exports.googleDriveCallback = onRequest({ secrets: [googleDriveOAuthClientJson] 
     return res.status(400).send(renderCallbackHtml(false, 'Missing authorization code or state parameter.'));
   }
 
-  // Verify and load session from Firestore
-  const sessionRef = db.collection('drive_oauth_sessions').doc(state);
-  const sessionDoc = await sessionRef.get();
+  let uid = null;
+  let redirectUri = CANONICAL_DRIVE_REDIRECT_URI;
 
-  if (!sessionDoc.exists) {
+  // 1. Check Firestore session
+  try {
+    const sessionRef = db.collection('drive_oauth_sessions').doc(state);
+    const sessionDoc = await sessionRef.get();
+    if (sessionDoc.exists) {
+      const session = sessionDoc.data();
+      uid = session.uid;
+      redirectUri = session.redirectUri || CANONICAL_DRIVE_REDIRECT_URI;
+      await sessionRef.delete();
+    }
+  } catch (err) {
+    console.warn('Session doc lookup skipped:', err.message);
+  }
+
+  // 2. Decode signed base64 state payload (resilient fallback for Android without website)
+  if (!uid) {
+    try {
+      const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+      if (decoded && decoded.uid) {
+        // Verify state is within 60 minutes
+        const maxAge = 60 * 60 * 1000;
+        if (!decoded.timestamp || (Date.now() - decoded.timestamp) < maxAge) {
+          uid = decoded.uid;
+          if (decoded.redirectUri) redirectUri = decoded.redirectUri;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not decode state as base64 JSON:', e.message);
+    }
+  }
+
+  if (!uid) {
     return res.status(400).send(renderCallbackHtml(false, 'Invalid, already used, or expired OAuth session. Please try connecting again from NOVELIX.'));
   }
 
-  const session = sessionDoc.data();
-  const uid = session.uid;
-  const redirectUri = session.redirectUri || CANONICAL_DRIVE_REDIRECT_URI;
   const { clientId, clientSecret } = getGoogleOAuthCredentials();
 
   if (!clientSecret) {
@@ -596,12 +623,13 @@ exports.googleDriveCallback = onRequest({ secrets: [googleDriveOAuthClientJson] 
 
     await db.collection('users').doc(uid).collection('drive_secure_tokens').doc(accountId).set(secureTokenData, { merge: true });
 
-    // 2. Store user-visible metadata in drive_accounts
+    // 2. Store user-visible metadata in drive_accounts (includes initial accessToken for instant file browsing)
     await db.collection('users').doc(uid).collection('drive_accounts').doc(accountId).set({
       id: accountId,
       email: email,
       name: name,
       picture: picture,
+      accessToken: tokenData.access_token,
       connectedAt: admin.firestore.FieldValue.serverTimestamp(),
       status: 'active',
       hasRefreshToken: !!tokenData.refresh_token,
@@ -757,6 +785,7 @@ exports.disconnectGoogleDriveAccount = onCall(async (request) => {
 function renderCallbackHtml(isSuccess, message, data = {}) {
   const brandColor = '#7C3AED';
   const bgColor = '#0B0B10';
+  const deepLinkUrl = `novelix://drive-callback?status=${isSuccess ? 'success' : 'error'}&email=${encodeURIComponent(data.email || '')}&accountId=${encodeURIComponent(data.accountId || '')}`;
   const statusIcon = isSuccess 
     ? '<div style="width:56px;height:56px;border-radius:50%;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
     : '<div style="width:56px;height:56px;border-radius:50%;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>';
@@ -837,9 +866,10 @@ function renderCallbackHtml(isSuccess, message, data = {}) {
     ${statusIcon}
     <h2>${isSuccess ? 'Google Drive Connected' : 'Connection Failed'}</h2>
     <p>${message}</p>
-    <button class="btn" onclick="finishAndClose()">Return to NOVELIX</button>
+    <a class="btn" id="returnBtn" href="${deepLinkUrl}" onclick="finishAndClose(event)">Return to NOVELIX</a>
   </div>
   <script>
+    const deepLink = '${deepLinkUrl}';
     const payload = {
       type: '${isSuccess ? 'NOVELIX_DRIVE_CONNECTED' : 'NOVELIX_DRIVE_ERROR'}',
       success: ${isSuccess},
@@ -853,15 +883,20 @@ function renderCallbackHtml(isSuccess, message, data = {}) {
       } catch(e) {}
     }
 
-    function finishAndClose() {
+    function finishAndClose(e) {
       if (window.opener) {
-        window.close();
+        try { window.close(); } catch(err) {}
       } else {
-        window.location.href = 'https://novelxa-48f15.firebaseapp.com';
+        window.location.href = deepLink;
       }
     }
 
-    ${isSuccess ? 'setTimeout(finishAndClose, 1800);' : ''}
+    // Auto-redirect to Android app
+    try {
+      window.location.href = deepLink;
+    } catch(e) {}
+
+    ${isSuccess ? 'setTimeout(() => { finishAndClose(); }, 1200);' : ''}
   </script>
 </body>
 </html>`;

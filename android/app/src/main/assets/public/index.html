@@ -23,8 +23,11 @@
   <!-- PDF.js Reader -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <!-- Google API Client for Google Drive Integration -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- NOTE: Google Identity Services (gsi/client) intentionally removed.
+       It causes Error 400: origin_mismatch in Android Capacitor WebView because
+       the WebView origin (https://localhost) is not an allowed JS origin in GCP.
+       Drive OAuth now uses server-side Authorization Code Flow via Firebase Cloud
+       Functions + Android system browser deep-link return. -->
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -1828,140 +1831,184 @@ function updateDraftStorageEstimate() {
 
 // ────────────────────────────────────────────────────────
 // GOOGLE DRIVE MULTI-ACCOUNT INTEGRATION
+// Architecture: Server-side Authorization Code Flow
+//   1. Frontend calls getGoogleDriveAuthUrl (Callable Function) → gets Google auth URL
+//   2. App opens URL in SYSTEM BROWSER via window.open(url, '_system')
+//      - '_system' = Android/iOS native browser, NOT a WebView popup
+//      - Completely eliminates Error 400: origin_mismatch
+//   3. User authenticates in real browser → Google redirects to Cloud Function callback
+//   4. Cloud Function exchanges code, stores tokens, redirects to novelix://drive-callback
+//   5. Android opens NOVELIX via the novelix:// intent-filter, app reads URL params
 // ────────────────────────────────────────────────────────
-// GOOGLE DRIVE CLOUD INTEGRATION (OAUTH 2.0 & BACKEND FLOW)
-// ────────────────────────────────────────────────────────
+
 const CANONICAL_DRIVE_REDIRECT_URI = "https://us-central1-novelxa-48f15.cloudfunctions.net/googleDriveCallback";
 
-// Listen for OAuth callback completion via postMessage from popup
-if (typeof window !== 'undefined') {
-  window.addEventListener('message', async (event) => {
-    if (event.data && event.data.type === 'NOVELIX_DRIVE_CONNECTED') {
-      showToast(`Google Drive connected: ${event.data.email || ''}`);
-      if (typeof loadConnectedDriveAccounts === 'function') {
-        await loadConnectedDriveAccounts();
+// ── Deep-link return handler (Capacitor App plugin) ──────
+// Fires when Android reopens NOVELIX via novelix://drive-callback?...
+(function setupDriveDeepLinkHandler() {
+  function handleDeepLink(url) {
+    if (!url) return;
+    try {
+      // Handle both full URL and path-only forms
+      const parsed = url.startsWith('novelix://') ? new URL(url.replace('novelix://', 'https://novelix.app/')) : new URL(url, 'https://novelix.app');
+      const pathname = parsed.pathname || parsed.host; // novelix://drive-callback → host = drive-callback
+      if (!pathname.includes('drive-callback') && !url.includes('drive-callback')) return;
+
+      const params = parsed.searchParams;
+      const status = params.get('status');
+      const email = params.get('email') ? decodeURIComponent(params.get('email')) : '';
+      const accountId = params.get('accountId') ? decodeURIComponent(params.get('accountId')) : '';
+
+      if (status === 'success') {
+        showToast(email ? `Google Drive connected: ${email}` : 'Google Drive connected!');
+        setTimeout(() => loadConnectedDriveAccounts(), 500);
+      } else {
+        showToast('Google Drive connection failed or was cancelled.');
       }
-    } else if (event.data && event.data.type === 'NOVELIX_DRIVE_ERROR') {
-      showToast(`Drive connection failed: ${event.data.message || 'Unknown error'}`);
+    } catch (parseErr) {
+      console.warn('Drive deep-link parse error:', parseErr);
+      // If URL parse failed, check raw string
+      if (url.includes('drive-callback') && url.includes('status=success')) {
+        showToast('Google Drive connected!');
+        setTimeout(() => loadConnectedDriveAccounts(), 500);
+      }
+    }
+  }
+
+  // Capacitor App plugin: appUrlOpen fires when app is opened via custom URL scheme
+  function tryCapacitorListener() {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      window.Capacitor.Plugins.App.addListener('appUrlOpen', (event) => {
+        console.log('[NOVELIX Drive] Deep-link received:', event.url);
+        handleDeepLink(event.url || '');
+      });
+      console.log('[NOVELIX Drive] Capacitor appUrlOpen listener registered');
+    }
+  }
+
+  // Also handle visibility change — user may return from browser without deep link on some devices
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && APP_STATE._driveOAuthPending) {
+      APP_STATE._driveOAuthPending = false;
+      // Delay to let Firestore write complete before reading
+      setTimeout(() => loadConnectedDriveAccounts(), 1200);
     }
   });
-}
 
+  // Attempt to register listener immediately; retry after page loads if Capacitor not ready
+  tryCapacitorListener();
+  window.addEventListener('load', tryCapacitorListener);
+  document.addEventListener('deviceready', tryCapacitorListener); // Cordova-compat
+})();
+
+// ── Initiate Google Drive Connection ────────────────────
 async function initiateGoogleDriveConnection() {
   if (!APP_STATE.user) { openAuthModal(); return; }
 
-  showToast('Initiating Google Drive Authorization...');
+  showToast('Opening Google authorization...');
 
-  // Strategy 1: Try secure backend OAuth 2.0 Authorization Code Flow
   try {
+    // Step 1: Call backend to generate a secure state-signed Google OAuth URL
     const getAuthUrlFn = functions.httpsCallable('getGoogleDriveAuthUrl');
     const res = await getAuthUrlFn({ redirectUri: CANONICAL_DRIVE_REDIRECT_URI });
-    if (res.data && res.data.authUrl) {
-      const popup = window.open(res.data.authUrl, 'NOVELIX_Google_Drive_Connect', 'width=540,height=680,menubar=no,toolbar=no');
+
+    if (!res.data || !res.data.authUrl) {
+      throw new Error('No auth URL returned from server');
+    }
+
+    const authUrl = res.data.authUrl;
+
+    // Step 2: Mark pending so visibilitychange handler refreshes accounts on return
+    APP_STATE._driveOAuthPending = true;
+
+    // Step 3: Open in SYSTEM BROWSER (not a popup, not a WebView)
+    // '_system' is the Capacitor/Cordova target that always opens the device's default browser.
+    // This completely avoids the WebView origin restriction.
+    const browserOpened = window.open(authUrl, '_system');
+
+    // Safety fallback for environments where _system doesn't work (desktop browser)
+    if (!browserOpened && !window.Capacitor) {
+      // Desktop web: open in a small popup as fallback
+      const popup = window.open(authUrl, 'NOVELIX_Drive_Auth', 'width=540,height=680');
       if (popup) {
         const timer = setInterval(() => {
           if (popup.closed) {
             clearInterval(timer);
-            loadConnectedDriveAccounts();
+            APP_STATE._driveOAuthPending = false;
+            setTimeout(() => loadConnectedDriveAccounts(), 800);
           }
         }, 1000);
-        return;
       }
     }
-  } catch (backendErr) {
-    console.log('Backend OAuth initiation unavailable or pending deployment, falling back to client GIS:', backendErr.message);
-  }
-
-  // Strategy 2: Client GIS Token Client Flow (direct browser fallback)
-  if (window.google && window.google.accounts && window.google.accounts.oauth2) {
-    const tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_DRIVE_CLIENT_ID,
-      scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email',
-      callback: async (tokenResponse) => {
-        if (tokenResponse && tokenResponse.access_token) {
-          await handleGoogleDriveTokenSuccess(tokenResponse.access_token);
-        }
-      }
-    });
-    tokenClient.requestAccessToken({ prompt: 'select_account' });
-  } else {
-    showToast('Google Drive authentication service loading...');
+  } catch (err) {
+    APP_STATE._driveOAuthPending = false;
+    console.error('[NOVELIX Drive] Auth initiation error:', err);
+    showToast(`Drive connection error: ${err.message || 'Could not start authentication.'}`);
   }
 }
 
-async function handleGoogleDriveTokenSuccess(accessToken) {
-  try {
-    // Fetch connected user info
-    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
-    const info = await res.json();
-    const email = info.email || 'connected.account@gmail.com';
-    const accId = email.replace(/[^a-zA-Z0-9]/g, '_');
-
-    await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).set({
-      id: accId,
-      email: email,
-      name: info.name || 'Google Account',
-      accessToken: accessToken,
-      connectedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      status: 'active'
-    });
-
-    showToast(`Google Drive account connected: ${email}`);
-    loadConnectedDriveAccounts();
-  } catch(e) {
-    showToast(`Drive connection error: ${e.message}`);
-  }
-}
-
+// ── Load Connected Drive Accounts ───────────────────────
 async function loadConnectedDriveAccounts() {
   if (!APP_STATE.user) return;
   const listEl = document.getElementById('connectedDriveList');
-  const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').get();
-  
-  const accounts = [];
-  snap.forEach(d => accounts.push(d.data()));
-  APP_STATE.connectedDriveAccounts = accounts;
+  if (!listEl) return;
 
-  if (!accounts.length) {
-    listEl.innerHTML = `<div class="surface-card-static p-3 text-center text-xs text-app-muted">No Google Drive accounts connected yet.</div>`;
-    return;
+  try {
+    const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').get();
+
+    const accounts = [];
+    snap.forEach(d => accounts.push(d.data()));
+    APP_STATE.connectedDriveAccounts = accounts;
+
+    if (!accounts.length) {
+      listEl.innerHTML = `<div class="surface-card-static p-3 text-center text-xs text-app-muted">No Google Drive accounts connected yet.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = accounts.map(acc => `
+      <div class="surface-card p-3 flex items-center justify-between">
+        <div class="truncate">
+          <p class="text-xs font-semibold text-white truncate">${escapeHtml(acc.email)}</p>
+          <span class="text-[10px] text-emerald-400">Connected • Ready to Import</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="browseDriveAccountFiles('${acc.id}')" class="btn-secondary text-[11px] px-2.5 py-1">Browse Files</button>
+          <button onclick="disconnectDriveAccount('${acc.id}')" class="text-xs text-red-400 p-1 hover:text-red-300">✕</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('[NOVELIX Drive] loadConnectedDriveAccounts error:', e);
+    if (listEl) listEl.innerHTML = `<div class="surface-card-static p-3 text-center text-xs text-red-400">Error loading accounts. Please try again.</div>`;
   }
-
-  listEl.innerHTML = accounts.map(acc => `
-    <div class="surface-card p-3 flex items-center justify-between">
-      <div class="truncate">
-        <p class="text-xs font-semibold text-white truncate">${escapeHtml(acc.email)}</p>
-        <span class="text-[10px] text-emerald-400">Connected • Ready to Import</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="browseDriveAccountFiles('${acc.id}')" class="btn-secondary text-[11px] px-2.5 py-1">Browse Files</button>
-        <button onclick="disconnectDriveAccount('${acc.id}')" class="text-xs text-red-400 p-1 hover:text-red-300">✕</button>
-      </div>
-    </div>
-  `).join('');
 }
 
+// ── Disconnect Drive Account ─────────────────────────────
 async function disconnectDriveAccount(accId) {
   if (!confirm('Disconnect this Google Drive account?')) return;
   try {
     const disconnectFn = functions.httpsCallable('disconnectGoogleDriveAccount');
     await disconnectFn({ accountId: accId });
   } catch(e) {
-    await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).delete();
+    // Fallback: direct Firestore delete
+    try {
+      await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).delete();
+    } catch (fe) {
+      console.error('[NOVELIX Drive] Disconnect error:', fe);
+    }
   }
   showToast('Account disconnected');
   loadConnectedDriveAccounts();
 }
 
+// ── Browse Drive Account Files ───────────────────────────
 async function browseDriveAccountFiles(accId) {
   let acc = APP_STATE.connectedDriveAccounts.find(a => a.id === accId);
   if (!acc) return;
 
   let token = acc.accessToken;
 
-  // If token is missing, request fresh token from backend callable
+  // If token is missing or stale, fetch a fresh one from the backend
   if (!token) {
     try {
       showToast('Fetching Drive access credentials...');
@@ -1972,12 +2019,12 @@ async function browseDriveAccountFiles(accId) {
         acc.accessToken = token;
       }
     } catch(err) {
-      console.warn('Could not refresh token from backend:', err.message);
+      console.warn('[NOVELIX Drive] Could not refresh token from backend:', err.message);
     }
   }
 
   if (!token) {
-    showToast('Drive token expired. Re-authenticating...');
+    showToast('Drive session expired. Please reconnect your account.');
     initiateGoogleDriveConnection();
     return;
   }
@@ -1988,11 +2035,19 @@ async function browseDriveAccountFiles(accId) {
 
   try {
     const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=mimeType='application/pdf' and trashed=false&fields=files(id,name,size,modifiedTime)&pageSize=30`, {
-      headers: { Authorization: `Bearer ${acc.accessToken}` }
+      headers: { Authorization: `Bearer ${token}` }
     });
+
+    if (res.status === 401) {
+      // Token rejected — clear local cache & prompt reconnection
+      await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).update({ accessToken: null });
+      container.innerHTML = `<div class="p-4 text-center text-xs text-yellow-400">Session expired. <button onclick="closeDrivePickerModal(); initiateGoogleDriveConnection();" class="underline">Reconnect Google Drive</button></div>`;
+      return;
+    }
+
     const data = await res.json();
     APP_STATE.activeDriveFiles = data.files || [];
-    renderDriveFilesList(APP_STATE.activeDriveFiles, acc.accessToken);
+    renderDriveFilesList(APP_STATE.activeDriveFiles, token);
   } catch(e) {
     container.innerHTML = `<div class="p-4 text-center text-xs text-red-400">Error loading Drive files: ${escapeHtml(e.message)}</div>`;
   }
@@ -2001,7 +2056,7 @@ async function browseDriveAccountFiles(accId) {
 function renderDriveFilesList(files, token) {
   const container = document.getElementById('driveFilesContainer');
   if (!files.length) {
-    container.innerHTML = `<div class="p-6 text-center text-xs text-app-muted">No PDF documents discovered in this Drive account.</div>`;
+    container.innerHTML = `<div class="p-6 text-center text-xs text-app-muted">No PDF documents found in this Drive account.</div>`;
     return;
   }
 
@@ -2025,7 +2080,7 @@ function renderDriveFilesList(files, token) {
 function filterDriveFileList(query) {
   const q = query.toLowerCase();
   const filtered = APP_STATE.activeDriveFiles.filter(f => f.name.toLowerCase().includes(q));
-  renderDriveFilesList(filtered);
+  renderDriveFilesList(filtered, APP_STATE._activeDriveToken || '');
 }
 
 function openDrivePickerForPublish() {
@@ -2066,6 +2121,7 @@ async function importDriveFileToStudio(fileId, fileName, fileSize, token) {
 
 function openDrivePickerModal() { document.getElementById('drivePickerModal').classList.add('open'); }
 function closeDrivePickerModal() { document.getElementById('drivePickerModal').classList.remove('open'); }
+
 
 // ────────────────────────────────────────────────────────
 // CREATOR VERIFICATION REQUEST SYSTEM
