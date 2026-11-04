@@ -15,6 +15,11 @@
 .env.secret
 functions/.env
 functions/.env.*
+client_secret*.json
+*.oauth.json
+credentials*.json
+google-oauth-secret*.json
+*.img
 __pycache__/
 *.pyc
 

@@ -19,8 +19,8 @@ const auth = admin.auth();
 const DEFAULT_USER_QUOTA_BYTES = 500 * 1024 * 1024;
 
 // Google Drive OAuth 2.0 Configuration
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '23165793827-un6a2kh299r2e7rroj9nivoku5josvlh.apps.googleusercontent.com';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '';
 const CANONICAL_DRIVE_REDIRECT_URI = 'https://us-central1-novelxa-48f15.cloudfunctions.net/googleDriveCallback';
 const TOKEN_ENCRYPTION_SECRET = process.env.TOKEN_ENCRYPTION_SECRET || 'novelix-super-secure-aes256-key-32chars!';
 const GOOGLE_DRIVE_SCOPES = [
