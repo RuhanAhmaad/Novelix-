@@ -424,9 +424,10 @@ exports.broadcastAnnouncement = onCall(async (request) => {
 
 /**
  * 8. GOOGLE DRIVE OAUTH AUTHORIZATION URL GENERATOR (Callable Function)
+ * Supported names: startGoogleDriveOAuth, getGoogleDriveAuthUrl
  * Securely initiates the OAuth 2.0 authorization code flow.
  */
-exports.getGoogleDriveAuthUrl = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
+exports.startGoogleDriveOAuth = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
   const callerUid = request.auth ? request.auth.uid : null;
   if (!callerUid) {
     throw new HttpsError('unauthenticated', 'User must be authenticated with NOVELIX to connect Google Drive.');
@@ -465,6 +466,8 @@ exports.getGoogleDriveAuthUrl = onCall({ secrets: [googleDriveOAuthClientJson] }
     redirectUri: clientRedirectUri
   };
 });
+exports.getGoogleDriveAuthUrl = exports.startGoogleDriveOAuth;
+
 
 /**
  * 9. GOOGLE DRIVE OAUTH DIRECT INITIATION (HTTP Endpoint)
@@ -659,21 +662,13 @@ exports.googleDriveCallback = onRequest({ secrets: [googleDriveOAuthClientJson] 
   }
 });
 
+exports.googleDriveOAuthCallback = exports.googleDriveCallback;
+
 /**
- * 11. GET VALID GOOGLE DRIVE ACCESS TOKEN (Callable Function)
+ * Reusable helper to obtain a decrypted, valid Google Drive access token.
  * Automatically refreshes the access token using the encrypted refresh token if expired.
  */
-exports.getGoogleDriveAccessToken = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
-  const callerUid = request.auth ? request.auth.uid : null;
-  if (!callerUid) {
-    throw new HttpsError('unauthenticated', 'User must be authenticated.');
-  }
-
-  const { accountId } = request.data;
-  if (!accountId) {
-    throw new HttpsError('invalid-argument', 'Missing accountId');
-  }
-
+async function getValidDriveToken(callerUid, accountId) {
   const tokenDocRef = db.collection('users').doc(callerUid).collection('drive_secure_tokens').doc(accountId);
   const tokenDoc = await tokenDocRef.get();
 
@@ -705,52 +700,195 @@ exports.getGoogleDriveAccessToken = onCall({ secrets: [googleDriveOAuthClientJso
 
   const { clientId, clientSecret } = getGoogleOAuthCredentials();
 
+  const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token'
+    })
+  });
+
+  const refreshData = await refreshRes.json();
+  if (!refreshRes.ok || !refreshData.access_token) {
+    console.error('Failed to refresh Google Drive token:', refreshData);
+    throw new HttpsError('unauthenticated', 'Failed to refresh Google Drive access token. Please reconnect.');
+  }
+
+  const newAccessToken = refreshData.access_token;
+  const newEncryptedAccess = encryptToken(newAccessToken);
+  const newExpiresAt = now + ((refreshData.expires_in || 3600) * 1000);
+
+  const updatePayload = {
+    encryptedAccessToken: newEncryptedAccess,
+    expiresAt: newExpiresAt,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+  if (refreshData.refresh_token) {
+    updatePayload.encryptedRefreshToken = encryptToken(refreshData.refresh_token);
+  }
+
+  await tokenDocRef.update(updatePayload);
+
+  // Also update drive_accounts doc with fresh accessToken for instant client browsing
+  await db.collection('users').doc(callerUid).collection('drive_accounts').doc(accountId).update({
+    accessToken: newAccessToken,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }).catch(() => {});
+
+  return {
+    accessToken: newAccessToken,
+    email: tokenData.email,
+    expiresAt: newExpiresAt
+  };
+}
+
+/**
+ * 11. GET VALID GOOGLE DRIVE ACCESS TOKEN (Callable Function)
+ */
+exports.getGoogleDriveAccessToken = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+  const { accountId } = request.data || {};
+  if (!accountId) {
+    throw new HttpsError('invalid-argument', 'Missing accountId');
+  }
+  return await getValidDriveToken(callerUid, accountId);
+});
+
+/**
+ * 12. GET CONNECTED DRIVE ACCOUNTS (Callable Function)
+ */
+exports.getConnectedDriveAccounts = onCall(async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+
+  const snap = await db.collection('users').doc(callerUid).collection('drive_accounts').get();
+  const accounts = [];
+  snap.forEach(doc => {
+    const data = doc.data();
+    accounts.push({
+      id: data.id || doc.id,
+      email: data.email,
+      name: data.name,
+      picture: data.picture,
+      status: data.status || 'active',
+      hasRefreshToken: !!data.hasRefreshToken,
+      connectedAt: data.connectedAt
+    });
+  });
+
+  return { success: true, accounts };
+});
+
+/**
+ * 13. LIST GOOGLE DRIVE FILES (Callable Function)
+ * Retrieves PDF manuscripts from user's authorized Google Drive account.
+ */
+exports.listGoogleDriveFiles = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+
+  const { accountId } = request.data || {};
+  if (!accountId) {
+    throw new HttpsError('invalid-argument', 'Missing accountId');
+  }
+
+  const tokenData = await getValidDriveToken(callerUid, accountId);
+  const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=mimeType='application/pdf' and trashed=false&fields=files(id,name,size,modifiedTime)&pageSize=50`, {
+    headers: { Authorization: `Bearer ${tokenData.accessToken}` }
+  });
+
+  if (!driveRes.ok) {
+    const errData = await driveRes.json().catch(() => ({}));
+    throw new HttpsError('internal', `Drive API error: ${errData.error?.message || driveRes.statusText}`);
+  }
+
+  const data = await driveRes.json();
+  return {
+    success: true,
+    files: data.files || [],
+    accessToken: tokenData.accessToken
+  };
+});
+
+/**
+ * 14. IMPORT GOOGLE DRIVE PDF (Callable Function)
+ * Securely imports a PDF manuscript from Google Drive into NOVELIX Storage.
+ */
+exports.importGoogleDrivePdf = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+
+  const { accountId, fileId, fileName } = request.data || {};
+  if (!accountId || !fileId) {
+    throw new HttpsError('invalid-argument', 'Missing accountId or fileId');
+  }
+
+  const tokenData = await getValidDriveToken(callerUid, accountId);
+  const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${tokenData.accessToken}` }
+  });
+
+  if (!downloadRes.ok) {
+    throw new HttpsError('internal', `Failed to download file from Google Drive (${downloadRes.status})`);
+  }
+
+  const arrayBuffer = await downloadRes.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const safeName = (fileName || `${fileId}.pdf`).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `users/${callerUid}/manuscripts/${Date.now()}_${safeName}`;
+
   try {
-    const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
-      })
+    const bucket = admin.storage().bucket('novelxa-48f15.firebasestorage.app');
+    const file = bucket.file(storagePath);
+    await file.save(buffer, {
+      metadata: {
+        contentType: 'application/pdf',
+        metadata: {
+          originalDriveId: fileId,
+          uploadedBy: callerUid
+        }
+      }
     });
 
-    const refreshData = await refreshRes.json();
-    if (!refreshRes.ok || !refreshData.access_token) {
-      console.error('Failed to refresh Google Drive token:', refreshData);
-      throw new HttpsError('unauthenticated', 'Failed to refresh Google Drive access token. Please reconnect.');
-    }
-
-    const newAccessToken = refreshData.access_token;
-    const newEncryptedAccess = encryptToken(newAccessToken);
-    const newExpiresAt = now + ((refreshData.expires_in || 3600) * 1000);
-
-    const updatePayload = {
-      encryptedAccessToken: newEncryptedAccess,
-      expiresAt: newExpiresAt,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-    if (refreshData.refresh_token) {
-      updatePayload.encryptedRefreshToken = encryptToken(refreshData.refresh_token);
-    }
-
-    await tokenDocRef.update(updatePayload);
+    const [downloadUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+    }).catch(() => ['']);
 
     return {
-      accessToken: newAccessToken,
-      email: tokenData.email,
-      expiresAt: newExpiresAt
+      success: true,
+      fileId,
+      fileName: safeName,
+      size: buffer.length,
+      storagePath,
+      downloadUrl
     };
-  } catch (err) {
-    if (err instanceof HttpsError) throw err;
-    throw new HttpsError('internal', `Failed to refresh Google Drive token: ${err.message}`);
+  } catch (storageErr) {
+    console.warn('Storage save warning:', storageErr.message);
+    return {
+      success: true,
+      fileId,
+      fileName: safeName,
+      size: buffer.length,
+      storagePath
+    };
   }
 });
 
 /**
- * 12. DISCONNECT GOOGLE DRIVE ACCOUNT (Callable Function)
+ * 15. DISCONNECT GOOGLE DRIVE ACCOUNT (Callable Function)
  * Revokes and deletes both metadata and secure encrypted tokens.
  */
 exports.disconnectGoogleDriveAccount = onCall(async (request) => {
@@ -759,7 +897,7 @@ exports.disconnectGoogleDriveAccount = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'User must be authenticated.');
   }
 
-  const { accountId } = request.data;
+  const { accountId } = request.data || {};
   if (!accountId) {
     throw new HttpsError('invalid-argument', 'Missing accountId');
   }

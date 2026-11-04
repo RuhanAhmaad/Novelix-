@@ -17,6 +17,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 
@@ -71,6 +72,7 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       box-sizing: border-box;
+      touch-action: manipulation;
     }
     input, textarea, select {
       user-select: text;
@@ -83,19 +85,25 @@
       overflow-x: hidden;
       padding-top: calc(58px + var(--sat));
       padding-bottom: calc(68px + var(--sab));
+      -webkit-overflow-scrolling: touch;
     }
     .safe-top { padding-top: var(--sat); }
     .safe-bottom { padding-bottom: var(--sab); }
 
-    /* Luxury Editorial Card Surfaces */
+    /* Luxury Editorial Card Surfaces with GPU Acceleration */
     .surface-card {
       background: #14141D;
       border: 1px solid #262638;
       border-radius: 14px;
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease;
     }
     .surface-card:active {
-      transform: scale(0.985);
+      transform: scale3d(0.985, 0.985, 1);
+      -webkit-transform: scale3d(0.985, 0.985, 1);
       border-color: rgba(146, 112, 255, 0.4);
     }
     .surface-card-static {
@@ -109,17 +117,22 @@
       border-radius: 14px;
     }
 
-    /* Buttons */
+    /* Buttons with Native Responsive Press Feedback */
     .btn-primary {
       background: #9270FF;
       color: #0B0B10;
       font-weight: 600;
       border-radius: 10px;
-      transition: all 0.2s ease;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transition: transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1), background-color 0.15s ease;
       box-shadow: 0 4px 14px rgba(146, 112, 255, 0.25);
     }
     .btn-primary:active {
-      transform: scale(0.97);
+      transform: scale3d(0.97, 0.97, 1);
+      -webkit-transform: scale3d(0.97, 0.97, 1);
       background: #B9A4FF;
     }
     .btn-secondary {
@@ -128,9 +141,15 @@
       border: 1px solid #262638;
       font-weight: 500;
       border-radius: 10px;
-      transition: all 0.2s ease;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transition: transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
     }
     .btn-secondary:active {
+      transform: scale3d(0.97, 0.97, 1);
+      -webkit-transform: scale3d(0.97, 0.97, 1);
       background: #262638;
       border-color: #9270FF;
     }
@@ -171,18 +190,22 @@
       gap: 4px;
     }
 
-    /* Navigation Bar */
+    /* Navigation Bar (Mobile Optimized GPU Compositing) */
     .glass-nav {
-      background: rgba(11, 11, 16, 0.94);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: rgba(11, 11, 16, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border-top: 1px solid #262638;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
     .glass-header {
-      background: rgba(11, 11, 16, 0.94);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: rgba(11, 11, 16, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid #262638;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
 
     /* Splash Screen */
@@ -195,15 +218,20 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: transform, opacity;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      transition: opacity 0.4s cubic-bezier(0.2, 0.9, 0.3, 1), transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1);
     }
     #splashScreen.hide {
       opacity: 0;
-      transform: scale(1.04);
+      transform: scale3d(1.04, 1.04, 1);
+      -webkit-transform: scale3d(1.04, 1.04, 1);
       pointer-events: none;
     }
     .pulse-glow {
       animation: pulseGlow 2.4s ease-in-out infinite;
+      will-change: transform, opacity;
     }
     @keyframes pulseGlow {
       0%, 100% { transform: scale(1); opacity: 0.85; filter: drop-shadow(0 0 15px rgba(146, 112, 255, 0.3)); }
@@ -216,6 +244,8 @@
       background-size: 200% 100%;
       animation: skeletonWave 1.6s ease-in-out infinite;
       border-radius: 12px;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
     @keyframes skeletonWave {
       0% { background-position: 200% 0; }
@@ -224,22 +254,27 @@
 
     /* Pages Container */
     .app-page { display: none; }
-    .app-page.active { display: block; }
+    .app-page.active { display: block; animation: pageFadeIn 0.2s cubic-bezier(0.2, 0.9, 0.3, 1); }
+    @keyframes pageFadeIn {
+      from { opacity: 0; transform: translate3d(0, 4px, 0); }
+      to { opacity: 1; transform: translate3d(0, 0, 0); }
+    }
 
-    /* Modals Backdrop */
+    /* Modals Backdrop (GPU Accelerated) */
     .modal-backdrop {
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.82);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
       z-index: 100;
       display: flex;
       align-items: flex-end;
       justify-content: center;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s ease;
+      will-change: opacity;
+      transition: opacity 0.22s ease-out;
     }
     .modal-backdrop.open {
       opacity: 1;
@@ -254,11 +289,17 @@
       max-height: 90vh;
       display: flex;
       flex-direction: column;
-      transform: translateY(100%);
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: translate3d(0, 100%, 0);
+      -webkit-transform: translate3d(0, 100%, 0);
+      will-change: transform;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1);
+      overscroll-behavior-y: contain;
     }
     .modal-backdrop.open .modal-sheet {
-      transform: translateY(0);
+      transform: translate3d(0, 0, 0);
+      -webkit-transform: translate3d(0, 0, 0);
     }
 
     /* Fullscreen Modal */
@@ -269,15 +310,20 @@
       z-index: 110;
       display: none;
       flex-direction: column;
+      will-change: transform, opacity;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
     .modal-fullscreen.open { display: flex; }
 
-    /* Toast Notification */
+    /* Toast Notification (Hardware Accelerated Spring) */
     #toastBar {
       position: fixed;
       bottom: calc(76px + var(--sab));
       left: 50%;
-      transform: translateX(-50%) translateY(30px);
+      transform: translate3d(-50%, 30px, 0);
+      -webkit-transform: translate3d(-50%, 30px, 0);
+      will-change: transform, opacity;
       background: #1B1B27;
       border: 1px solid #9270FF;
       color: #F5F3FA;
@@ -288,12 +334,13 @@
       z-index: 150;
       opacity: 0;
       pointer-events: none;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.25s ease;
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
     #toastBar.show {
       opacity: 1;
-      transform: translateX(-50%) translateY(0);
+      transform: translate3d(-50%, 0, 0);
+      -webkit-transform: translate3d(-50%, 0, 0);
     }
 
     /* Developer Terminal */
@@ -1360,7 +1407,7 @@ const IMGBB_KEY = 'a9985ccf572a0e05bce242e27cf8be33';
 const DEFAULT_QUOTA_BYTES = 500 * 1024 * 1024;
 
 // Initialize Firebase App
-let auth, db, storage, messaging;
+let auth, db, storage, messaging, functions;
 try {
   if (!firebase.apps.length) {
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -1368,6 +1415,11 @@ try {
   auth = firebase.auth();
   db = firebase.firestore();
   storage = firebase.storage();
+  try {
+    functions = firebase.app().functions('us-central1');
+  } catch(fErr) {
+    try { functions = firebase.functions('us-central1'); } catch(e) {}
+  }
   try {
     if (firebase.messaging.isSupported()) {
       messaging = firebase.messaging();
@@ -1906,29 +1958,44 @@ async function initiateGoogleDriveConnection() {
   if (!APP_STATE.user) { openAuthModal(); return; }
 
   showToast('Opening Google authorization...');
+  APP_STATE._driveOAuthPending = true;
 
   try {
-    // Step 1: Call backend to generate a secure state-signed Google OAuth URL
-    const getAuthUrlFn = functions.httpsCallable('getGoogleDriveAuthUrl');
-    const res = await getAuthUrlFn({ redirectUri: CANONICAL_DRIVE_REDIRECT_URI });
+    let authUrl = null;
 
-    if (!res.data || !res.data.authUrl) {
-      throw new Error('No auth URL returned from server');
+    // Step 1: Call backend callable (try startGoogleDriveOAuth, then getGoogleDriveAuthUrl)
+    if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+      try {
+        const getAuthUrlFn = functions.httpsCallable('startGoogleDriveOAuth');
+        const res = await getAuthUrlFn({ redirectUri: CANONICAL_DRIVE_REDIRECT_URI });
+        if (res && res.data && res.data.authUrl) {
+          authUrl = res.data.authUrl;
+        }
+      } catch (callErr1) {
+        console.warn('startGoogleDriveOAuth error, trying getGoogleDriveAuthUrl:', callErr1.message);
+        try {
+          const getAuthUrlFn2 = functions.httpsCallable('getGoogleDriveAuthUrl');
+          const res2 = await getAuthUrlFn2({ redirectUri: CANONICAL_DRIVE_REDIRECT_URI });
+          if (res2 && res2.data && res2.data.authUrl) {
+            authUrl = res2.data.authUrl;
+          }
+        } catch(callErr2) {
+          console.warn('getGoogleDriveAuthUrl error:', callErr2.message);
+        }
+      }
     }
 
-    const authUrl = res.data.authUrl;
+    // Step 2: Resilient fallback to direct Cloud Function HTTP endpoint
+    if (!authUrl) {
+      authUrl = `https://us-central1-novelxa-48f15.cloudfunctions.net/googleDriveAuth?uid=${encodeURIComponent(APP_STATE.user.uid)}&redirect_uri=${encodeURIComponent(CANONICAL_DRIVE_REDIRECT_URI)}`;
+    }
 
-    // Step 2: Mark pending so visibilitychange handler refreshes accounts on return
-    APP_STATE._driveOAuthPending = true;
-
-    // Step 3: Open in SYSTEM BROWSER (not a popup, not a WebView)
-    // '_system' is the Capacitor/Cordova target that always opens the device's default browser.
-    // This completely avoids the WebView origin restriction.
+    // Step 3: Open in SYSTEM BROWSER (Chrome on Android)
+    // Completely avoids WebView sandbox and origin_mismatch
     const browserOpened = window.open(authUrl, '_system');
 
-    // Safety fallback for environments where _system doesn't work (desktop browser)
+    // Safety fallback for desktop browsers
     if (!browserOpened && !window.Capacitor) {
-      // Desktop web: open in a small popup as fallback
       const popup = window.open(authUrl, 'NOVELIX_Drive_Auth', 'width=540,height=680');
       if (popup) {
         const timer = setInterval(() => {
@@ -1954,10 +2021,27 @@ async function loadConnectedDriveAccounts() {
   if (!listEl) return;
 
   try {
-    const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').get();
+    let accounts = [];
 
-    const accounts = [];
-    snap.forEach(d => accounts.push(d.data()));
+    // Attempt backend callable getConnectedDriveAccounts
+    if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+      try {
+        const getAccountsFn = functions.httpsCallable('getConnectedDriveAccounts');
+        const res = await getAccountsFn();
+        if (res && res.data && Array.isArray(res.data.accounts)) {
+          accounts = res.data.accounts;
+        }
+      } catch(be) {
+        console.warn('getConnectedDriveAccounts backend fallback to Firestore:', be.message);
+      }
+    }
+
+    // Firestore fallback
+    if (!accounts.length) {
+      const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').get();
+      snap.forEach(d => accounts.push(d.data()));
+    }
+
     APP_STATE.connectedDriveAccounts = accounts;
 
     if (!accounts.length) {
@@ -1987,10 +2071,13 @@ async function loadConnectedDriveAccounts() {
 async function disconnectDriveAccount(accId) {
   if (!confirm('Disconnect this Google Drive account?')) return;
   try {
-    const disconnectFn = functions.httpsCallable('disconnectGoogleDriveAccount');
-    await disconnectFn({ accountId: accId });
+    if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+      const disconnectFn = functions.httpsCallable('disconnectGoogleDriveAccount');
+      await disconnectFn({ accountId: accId });
+    } else {
+      await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).delete();
+    }
   } catch(e) {
-    // Fallback: direct Firestore delete
     try {
       await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).delete();
     } catch (fe) {
@@ -2006,10 +2093,30 @@ async function browseDriveAccountFiles(accId) {
   let acc = APP_STATE.connectedDriveAccounts.find(a => a.id === accId);
   if (!acc) return;
 
-  let token = acc.accessToken;
+  openDrivePickerModal();
+  const container = document.getElementById('driveFilesContainer');
+  container.innerHTML = `<div class="skeleton-box h-12 mb-2"></div><div class="skeleton-box h-12"></div>`;
 
-  // If token is missing or stale, fetch a fresh one from the backend
-  if (!token) {
+  // Strategy 1: Backend callable listGoogleDriveFiles
+  if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+    try {
+      const listFn = functions.httpsCallable('listGoogleDriveFiles');
+      const res = await listFn({ accountId: accId });
+      if (res && res.data && res.data.files) {
+        APP_STATE.activeDriveFiles = res.data.files;
+        APP_STATE._activeAccountId = accId;
+        APP_STATE._activeDriveToken = res.data.accessToken || acc.accessToken;
+        renderDriveFilesList(APP_STATE.activeDriveFiles, APP_STATE._activeDriveToken);
+        return;
+      }
+    } catch(backendErr) {
+      console.warn('[NOVELIX Drive] Backend listGoogleDriveFiles fallback:', backendErr.message);
+    }
+  }
+
+  // Strategy 2: Client fetch with token
+  let token = acc.accessToken;
+  if (!token && typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
     try {
       showToast('Fetching Drive access credentials...');
       const getTokenFn = functions.httpsCallable('getGoogleDriveAccessToken');
@@ -2024,14 +2131,11 @@ async function browseDriveAccountFiles(accId) {
   }
 
   if (!token) {
+    closeDrivePickerModal();
     showToast('Drive session expired. Please reconnect your account.');
     initiateGoogleDriveConnection();
     return;
   }
-
-  openDrivePickerModal();
-  const container = document.getElementById('driveFilesContainer');
-  container.innerHTML = `<div class="skeleton-box h-12 mb-2"></div><div class="skeleton-box h-12"></div>`;
 
   try {
     const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=mimeType='application/pdf' and trashed=false&fields=files(id,name,size,modifiedTime)&pageSize=30`, {
@@ -2039,14 +2143,15 @@ async function browseDriveAccountFiles(accId) {
     });
 
     if (res.status === 401) {
-      // Token rejected — clear local cache & prompt reconnection
-      await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).update({ accessToken: null });
+      await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).update({ accessToken: null }).catch(() => {});
       container.innerHTML = `<div class="p-4 text-center text-xs text-yellow-400">Session expired. <button onclick="closeDrivePickerModal(); initiateGoogleDriveConnection();" class="underline">Reconnect Google Drive</button></div>`;
       return;
     }
 
     const data = await res.json();
     APP_STATE.activeDriveFiles = data.files || [];
+    APP_STATE._activeAccountId = accId;
+    APP_STATE._activeDriveToken = token;
     renderDriveFilesList(APP_STATE.activeDriveFiles, token);
   } catch(e) {
     container.innerHTML = `<div class="p-4 text-center text-xs text-red-400">Error loading Drive files: ${escapeHtml(e.message)}</div>`;
@@ -2096,8 +2201,35 @@ function openDrivePickerForPublish() {
 async function importDriveFileToStudio(fileId, fileName, fileSize, token) {
   closeDrivePickerModal();
   switchPage('publish');
-  showToast(`Downloading "${fileName}" from Google Drive...`);
+  showToast(`Importing "${fileName}" from Google Drive...`);
 
+  // Strategy 1: Backend importGoogleDrivePdf
+  if (APP_STATE._activeAccountId && typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+    try {
+      const importFn = functions.httpsCallable('importGoogleDrivePdf');
+      const res = await importFn({ accountId: APP_STATE._activeAccountId, fileId, fileName });
+      if (res && res.data && res.data.success) {
+        const idx = APP_STATE.publishEditions.length;
+        addEditionRow();
+        APP_STATE.publishEditions[idx].driveFile = {
+          fileId: fileId,
+          fileName: fileName,
+          storagePath: res.data.storagePath,
+          downloadUrl: res.data.downloadUrl
+        };
+        const label = document.getElementById(`edFileLabel-${idx}`);
+        const sizeMB = fileSize ? (fileSize / (1024*1024)).toFixed(1) + ' MB' : 'Cloud';
+        if (label) label.textContent = `[Drive Cloud] ${fileName} (${sizeMB})`;
+        recalculateStorageQuota();
+        showToast('Manuscript imported successfully into Publishing Studio');
+        return;
+      }
+    } catch(bErr) {
+      console.warn('[NOVELIX Drive] Backend PDF import fallback to client fetch:', bErr.message);
+    }
+  }
+
+  // Strategy 2: Client fetch
   try {
     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
       headers: { Authorization: `Bearer ${token}` }
