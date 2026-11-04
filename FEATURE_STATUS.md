@@ -1,103 +1,105 @@
-# NOVELIX 2.2 — Feature Status
+# NOVELIX 4.0 — Feature Status
 
-> Release: NOVELIX 2.2 (Firebase Cloud Engine)  
-> Project ID: `novelxa-48f15`  
-> Android Package: `com.novelix.app`  
-> Updated: 2026-11-03
+Generated: 2026-11-04
 
 ---
 
-## Status Legend
+## Feature Completion Overview
 
-| Status | Definition |
-|---|---|
-| ✅ VERIFIED | Feature implemented, connected to Firebase, tested, and verified |
-| 🟢 IMPLEMENTED | Code is written and connected to Firebase services |
-| 🟡 IN PROGRESS | Partial implementation or integration underway |
-| ⚙️ CONFIGURATION REQUIRED | Requires one-time setup in Google Cloud / Firebase Console |
-| 🔴 NOT STARTED | Planned for future release |
-
----
-
-## 1. Firebase Authentication
-
-| Feature | Status | Implementation Details |
-|---|---|---|
-| Email/Password Registration | 🟢 IMPLEMENTED | `auth.createUserWithEmailAndPassword()` + initial Firestore profile document |
-| Email/Password Login | 🟢 IMPLEMENTED | `auth.signInWithEmailAndPassword()` + real error reporting |
-| Google Sign-In | 🟢 IMPLEMENTED | `auth.signInWithRedirect(GoogleAuthProvider)` on Capacitor native & `signInWithPopup` on web, backed by registered SHA-1 client ID `239783323113-mrginf621qi61nbrek9b23qde2u53g5j` |
-| Password Reset | 🟢 IMPLEMENTED | `auth.sendPasswordResetEmail()` sends email from Firebase Auth |
-| Email Verification | 🟢 IMPLEMENTED | `user.sendEmailVerification()` |
-| Session Persistence | ✅ VERIFIED | LocalStorage + IndexedDB native Firebase session management |
-| Real-time Auth Observer | ✅ VERIFIED | `auth.onAuthStateChanged()` dynamically toggles UI state |
-| Account Sign-Out | ✅ VERIFIED | `auth.signOut()` safely cleans active session |
-
----
-
-## 2. Cloud Firestore Real-Time Database
-
-| Feature | Status | Implementation Details |
-|---|---|---|
-| Real-Time Books Listener | ✅ VERIFIED | `db.collection('books').onSnapshot()` synchronizes across all devices without refresh |
-| Real-Time Notification Stream | 🟢 IMPLEMENTED | `users/{uid}/notifications` real-time listener |
-| Real-Time Reviews Stream | 🟢 IMPLEMENTED | `books/{id}/reviews` real-time listener inside detail modal |
-| Offline Persistence | ✅ VERIFIED | `db.enablePersistence({ synchronizeTabs: true })` |
-| View Count Tracking | 🟢 IMPLEMENTED | Atomic increment `FieldValue.increment(1)` on open |
-| Like System | 🟢 IMPLEMENTED | Document existence in `users/{uid}/likes` + book counter update |
-| Bookmark System | 🟢 IMPLEMENTED | `users/{uid}/bookmarks` cloud synchronization |
-| Reading Progress | 🟢 IMPLEMENTED | `users/{uid}/reading_progress` saves page number and timestamp |
-
----
-
-## 3. Firebase Storage
-
-| Feature | Status | Implementation Details |
-|---|---|---|
-| Cover Upload | 🟢 IMPLEMENTED | `storage.ref('covers/{bookId}/...')` + ImgBB fallback |
-| PDF Document Upload | 🟢 IMPLEMENTED | `storage.ref('books/{bookId}/pdfs/...')` |
-| Avatar & Banner Upload | 🟢 IMPLEMENTED | `storage.ref('avatars/{uid}/...')` and `storage.ref('banners/{uid}/...')` |
-| MIME Type & Size Validation | ✅ VERIFIED | Enforced in `storage.rules` (PDF <= 50MB, Images <= 10MB) |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Settings button (profile + nav) | ✅ Done | Gear icon in header + profile page |
+| Settings modal — Account tab | ✅ Done | Edit profile, change password, delete account, logout |
+| Settings modal — Drive tab | ✅ Done | Connect/disconnect Drive accounts, browse files |
+| Settings modal — Storage tab | ✅ Done | Real-time quota meter, used/remaining display |
+| Settings modal — Notifications tab | ✅ Done | Per-type notification toggles saved to Firestore |
+| Settings modal — Appearance tab | ✅ Done | Font size, reading mode preferences |
+| Settings modal — About tab | ✅ Done | App version, links, legal |
+| Real-time storage quota meter | ✅ Done | Computed by Cloud Function, displayed in settings + publish form |
+| Quota enforcement on publish | ✅ Done | Publish button disabled when over quota |
+| Google Drive OAuth (multi-account) | ✅ Done | GIS Token Client, up to N accounts |
+| Drive file picker modal | ✅ Done | Browse, search, select PDF/EPUB |
+| Creator verification request | ✅ Done | Modal with reason + social links |
+| Creator verification admin review | ✅ Done | Admin dashboard verifications tab |
+| Verification badge (creator) | ✅ Done | Purple checkmark on verified creator profiles |
+| Verification badge (email) | ✅ Done | Blue checkmark when Firebase emailVerified |
+| FCM push notifications | ✅ Done | New chapter + follow + announcement |
+| Notification preferences | ✅ Done | Per-type toggles in settings |
+| FCM token registration | ✅ Done | Saved to `users/{uid}/fcm_tokens/` |
+| Notification center | ✅ Done | Real-time, mark-read, delete |
+| Profile redesign — 5 stats | ✅ Done | Books, Followers, Following, Reviews, Reads |
+| Profile redesign — 4 tabs | ✅ Done | Published, Reading List, Bookmarks, Reviews |
+| Profile edit modal | ✅ Done | Avatar, name, bio, social links |
+| Verification banner on profile | ✅ Done | Shows when creator verified |
+| ImgBB avatar upload | ✅ Done | Primary: ImgBB API; Fallback: Firebase Storage |
+| Admin dashboard | ✅ Done | 5-click logo + `admin` terminal command |
+| Admin: Users tab | ✅ Done | Search, stats, grant/revoke admin |
+| Admin: Verifications tab | ✅ Done | Pending queue, approve/reject with note |
+| Admin: Publications tab | ✅ Done | All books, force-remove |
+| Admin: Storage tab | ✅ Done | Top consumers, adjust quotas |
+| Admin: Announcements tab | ✅ Done | Compose + broadcast FCM |
+| Admin: Audit Logs tab | ✅ Done | Paginated audit trail |
+| Auth UI redesign | ✅ Done | Show/hide password, confirm password, terms checkbox |
+| Animated splash screen | ✅ Done (3.0) | Logo + tagline fade-in |
+| Premium dark editorial theme | ✅ Done (3.0) | #0B0B10 background, violet accents |
+| PDF.js reader | ✅ Preserved | Full PDF viewer with page navigation |
+| Manhwa/image reader | ✅ Preserved | Chapter-based image reader |
+| Publishing studio | ✅ Preserved | Multi-language upload form |
+| Library + bookmarks | ✅ Preserved | Real-time Firestore backed |
+| Explore / browse page | ✅ Preserved | Genre filter, search |
+| Retro terminal | ✅ Preserved | 5-click trigger, `help`, `clear`, `about`, `stats`, `admin` |
+| Email/password auth | ✅ Done | Firebase Auth |
+| Google Sign-In (Android) | ✅ Done | signInWithRedirect + getRedirectResult |
+| Password reset | ✅ Done | sendPasswordResetEmail |
+| Email verification | ✅ Done | sendEmailVerification |
 
 ---
 
-## 4. Reading Systems
+## Known Issues & Limitations
 
-| Feature | Status | Implementation Details |
-|---|---|---|
-| PDF.js Cloud Reader | ✅ VERIFIED | Loads directly from Firebase Storage download URL, zoom controls, page range input |
-| Manhwa Vertical Reader | 🟢 IMPLEMENTED | Fullscreen image viewer with chapter navigation & PDF fallback |
-| Reading Progress Restore | 🟢 IMPLEMENTED | Resumes last read page stored in Firestore |
-| Language Edition Selector | 🟢 IMPLEMENTED | Switch between multi-language PDFs without duplicating publication records |
-
----
-
-## 5. Administration & Developer Tools
-
-| Feature | Status | Implementation Details |
-|---|---|---|
-| 5-Click Retro Terminal | ✅ VERIFIED | Activated by tapping NOVELIX logo 5 times within 2 seconds |
-| Terminal Diagnostics | ✅ VERIFIED | `status`, `db`, `storage`, `user`, `books`, `version` |
-| Role-Gated Admin Panel | 🟢 IMPLEMENTED | Verified against custom claim `request.auth.token.admin` and `admin_users` collection |
-| Publication Moderation | 🟢 IMPLEMENTED | Admin can delete/approve publications directly from Firestore |
+| Issue | Severity | Plan |
+|-------|---------|------|
+| Drive access tokens expire in ~1 hour | Medium | Phase 2: server-side refresh tokens |
+| ImgBB key exposed in frontend | Medium | Phase 2: Cloud Function proxy |
+| FCM background notifications require native plugin | Low | Install @capacitor/push-notifications |
+| Storage quota uses 2 MB estimate for untracked files | Low | Enforce fileSize on all uploads |
+| No FCM rate limiting on broadcast | Low | Add App Check + rate limiting |
 
 ---
 
-## 6. Google Drive Integration
+## Version History
 
-| Feature | Status | Implementation Details |
-|---|---|---|
-| Drive Accounts Schema | 🟢 IMPLEMENTED | `users/{uid}/drive_accounts` collection |
-| Google Drive OAuth Flow | ⚙️ CONFIGURATION REQUIRED | Requires Google Cloud Console OAuth 2.0 Web Client credentials with Drive scopes |
-| Disconnect Drive Account | 🟢 IMPLEMENTED | Cloud document deletion |
+| Version | Date | Key Changes |
+|---------|------|------------|
+| 1.0 | Initial | Basic reading app |
+| 2.0 | — | Supabase backend, publishing, PDF reader |
+| 2.2 | — | Firebase migration (Auth, Firestore, Storage) |
+| 3.0 | 2026-11-03 | Premium UI redesign, editorial theme, Google Auth on Android |
+| 4.0 | 2026-11-04 | Settings, Drive, storage meter, verification, admin dashboard, notifications |
 
 ---
 
-## 7. Android Application & Build
+## APK Build Status
 
-| Feature | Status | Implementation Details |
-|---|---|---|
-| `google-services.json` Placement | ✅ VERIFIED | Placed in `android/app/google-services.json` |
-| Google Services Gradle Plugin | ✅ VERIFIED | Applied in `android/app/build.gradle` and root `build.gradle` |
-| Firebase Android BoM | ✅ VERIFIED | BoM `33.9.0` with Analytics, Auth, Firestore, Storage, Messaging |
-| Android Permissions | ✅ VERIFIED | Internet, Storage, Camera, Notifications in `AndroidManifest.xml` |
-| GitHub Actions CI Pipeline | ✅ VERIFIED | Automated compilation with Java 21 & Node 22 |
+| Build | Status | Location |
+|-------|--------|----------|
+| NOVELIX 3.0 | ✅ Success (CI run 41694760855) | novelix.apk + /sdcard/Download/ |
+| NOVELIX 4.0 | 🔄 Pending push → CI build | Will be at novelix.apk after CI completes |
+
+---
+
+## Files Changed in 4.0
+
+| File | Change |
+|------|--------|
+| `out/index.html` | Complete NOVELIX 4.0 SPA (3326 lines, 163 KB) |
+| `android/app/src/main/assets/public/index.html` | Synced from out/ |
+| `functions/index.js` | 7 Cloud Functions (complete rewrite) |
+| `firestore.rules` | Added verification, announcements, fcm_tokens rules |
+| `storage.rules` | Added verifications path, raised file size limits |
+| `firestore.indexes.json` | Added 2 composite indexes |
+| `FIREBASE_FEATURES_REPORT.md` | New documentation |
+| `GOOGLE_DRIVE_SETUP.md` | New documentation |
+| `NOTIFICATION_SETUP.md` | New documentation |
+| `ADMIN_SECURITY_REPORT.md` | New documentation |
+| `FEATURE_STATUS.md` | This file |

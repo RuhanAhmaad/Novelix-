@@ -1,11 +1,10 @@
 /**
- * NOVELIX 2.2 — Cloud Functions for Firebase
- * High-performance, serverless backend operations
+ * NOVELIX 4.0 — Cloud Functions for Firebase
+ * High-performance, serverless backend operations & secure admin endpoints
  */
 
 const { onDocumentCreated, onDocumentWritten, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { beforeUserCreated } = require('firebase-functions/v2/identity');
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -15,9 +14,12 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const auth = admin.auth();
 
+// Default storage quota per user: 500 MB in bytes
+const DEFAULT_USER_QUOTA_BYTES = 500 * 1024 * 1024;
+
 /**
  * 1. SET ADMIN CLAIM (Callable Function)
- * Securely assign admin custom claim. Only verified admins or initial secret can call this.
+ * Securely assign admin custom claim. Only verified admins or initial bootstrap secret can call this.
  */
 exports.setAdminRole = onCall(async (request) => {
   const callerUid = request.auth ? request.auth.uid : null;
@@ -114,14 +116,12 @@ exports.onReviewWritten = onDocumentWritten('books/{bookId}/reviews/{reviewId}',
 });
 
 /**
- * 3. NEW CHAPTER NOTIFICATION TRIGGER
- * Send FCM push notification and in-app notifications to all followers when an author publishes a chapter.
+ * 3. NEW PUBLICATION / CHAPTER NOTIFICATION TRIGGER
  */
 exports.onChapterPublished = onDocumentWritten('books/{bookId}/chapters/{chapterId}', async (event) => {
   const before = event.data.before ? event.data.before.data() : null;
   const after = event.data.after ? event.data.after.data() : null;
 
-  // Only trigger on newly published chapter
   if (!after || !after.isPublished) return;
   if (before && before.isPublished) return;
 
@@ -134,7 +134,6 @@ exports.onChapterPublished = onDocumentWritten('books/{bookId}/chapters/{chapter
   const bookTitle = book.title || 'Untitled';
   const chapterNum = after.chapterNumber || after.chapterNum || 1;
 
-  // Retrieve author followers
   const followersSnap = await db.collection('authors').doc(authorId).collection('followers').get();
   if (followersSnap.empty) return;
 
@@ -159,7 +158,6 @@ exports.onChapterPublished = onDocumentWritten('books/{bookId}/chapters/{chapter
 
   await batch.commit();
 
-  // Send FCM Push notification to topic for this book/author
   try {
     await admin.messaging().send({
       topic: `book_${bookId}`,
@@ -179,7 +177,6 @@ exports.onChapterPublished = onDocumentWritten('books/{bookId}/chapters/{chapter
 
 /**
  * 4. NEW FOLLOWER NOTIFICATION
- * Notify author when a user follows them.
  */
 exports.onFollowCreated = onDocumentCreated('authors/{authorId}/followers/{followerId}', async (event) => {
   const authorId = event.params.authorId;
@@ -196,4 +193,154 @@ exports.onFollowCreated = onDocumentCreated('authors/{authorId}/followers/{follo
     isRead: false,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+});
+
+/**
+ * 5. REAL-TIME STORAGE QUOTA RECALCULATION TRIGGER
+ * Recalculates an author's total storage usage whenever a book is created, updated or deleted.
+ */
+exports.onBookStorageUpdated = onDocumentWritten('books/{bookId}', async (event) => {
+  const before = event.data.before ? event.data.before.data() : null;
+  const after = event.data.after ? event.data.after.data() : null;
+  const authorId = (after && after.authorId) || (before && before.authorId);
+
+  if (!authorId) return;
+
+  // Query all books authored by this user
+  const booksSnap = await db.collection('books').where('authorId', '==', authorId).get();
+  let totalBytes = 0;
+
+  booksSnap.forEach((doc) => {
+    const data = doc.data();
+    // Tally language edition file sizes
+    if (Array.isArray(data.languages)) {
+      data.languages.forEach((lang) => {
+        if (typeof lang.fileSize === 'number') {
+          totalBytes += lang.fileSize;
+        } else if (lang.fileUrl) {
+          totalBytes += 1.5 * 1024 * 1024; // Default estimate if untracked
+        }
+      });
+    }
+    // Tally cover size estimate
+    if (data.coverUrl) {
+      totalBytes += (typeof data.coverSize === 'number') ? data.coverSize : 250 * 1024;
+    }
+  });
+
+  const userRef = db.collection('users').doc(authorId);
+  const userDoc = await userRef.get();
+  const currentQuota = (userDoc.exists && userDoc.data().storageQuotaBytes) || DEFAULT_USER_QUOTA_BYTES;
+
+  await userRef.set({
+    storageUsedBytes: totalBytes,
+    storageQuotaBytes: currentQuota,
+    storageLastUpdated: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+});
+
+/**
+ * 6. CREATOR VERIFICATION DECISION (Callable Function for Admins)
+ */
+exports.reviewCreatorVerification = onCall(async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid) throw new HttpsError('unauthenticated', 'Must be authenticated');
+
+  // Verify caller is admin
+  const callerUser = await auth.getUser(callerUid);
+  const isAdmin = callerUser.customClaims && callerUser.customClaims.admin === true;
+  if (!isAdmin) throw new HttpsError('permission-denied', 'Only administrators can review verification requests');
+
+  const { requestId, targetUid, decision, notes } = request.data;
+  if (!requestId || !targetUid || !decision) {
+    throw new HttpsError('invalid-argument', 'Missing requestId, targetUid, or decision');
+  }
+
+  const isApproved = decision === 'approve';
+  const newStatus = isApproved ? 'verified' : 'rejected';
+
+  // 1. Update verification request document
+  await db.collection('verification_requests').doc(requestId).update({
+    status: newStatus,
+    reviewedBy: callerUid,
+    reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+    reviewNotes: notes || ''
+  });
+
+  // 2. Update user profile
+  await db.collection('users').doc(targetUid).update({
+    creatorVerified: isApproved,
+    creatorVerificationStatus: newStatus,
+    creatorVerifiedAt: isApproved ? admin.firestore.FieldValue.serverTimestamp() : null
+  });
+
+  // 3. Send notification to user
+  await db.collection('users').doc(targetUid).collection('notifications').add({
+    type: 'verification',
+    title: isApproved ? 'Creator Verification Approved!' : 'Creator Verification Update',
+    message: isApproved 
+      ? 'Congratulations! Your account has been verified with official NOVELIX Creator status.'
+      : `Your creator verification request was not approved: ${notes || 'Requirements not met at this time.'}`,
+    isRead: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // 4. Audit log
+  await db.collection('admin_logs').add({
+    adminId: callerUid,
+    action: isApproved ? 'APPROVE_CREATOR' : 'REJECT_CREATOR',
+    targetUid: targetUid,
+    requestId: requestId,
+    notes: notes || '',
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true, status: newStatus };
+});
+
+/**
+ * 7. BROADCAST PLATFORM ANNOUNCEMENT (Callable Function for Admins)
+ */
+exports.broadcastAnnouncement = onCall(async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid) throw new HttpsError('unauthenticated', 'Must be authenticated');
+
+  const callerUser = await auth.getUser(callerUid);
+  if (!callerUser.customClaims || !callerUser.customClaims.admin) {
+    throw new HttpsError('permission-denied', 'Admin privileges required');
+  }
+
+  const { title, message, url } = request.data;
+  if (!title || !message) throw new HttpsError('invalid-argument', 'Title and message required');
+
+  // Save to announcements collection
+  const announcementRef = await db.collection('announcements').add({
+    title,
+    message,
+    url: url || '',
+    authorId: callerUid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // Push via FCM topic
+  try {
+    await admin.messaging().send({
+      topic: 'announcements',
+      notification: { title, body: message },
+      data: { announcementId: announcementRef.id, url: url || '' }
+    });
+  } catch(e) {
+    console.log('Broadcast FCM dispatch notice:', e.message);
+  }
+
+  // Audit log
+  await db.collection('admin_logs').add({
+    adminId: callerUid,
+    action: 'BROADCAST_ANNOUNCEMENT',
+    announcementId: announcementRef.id,
+    title,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { success: true, announcementId: announcementRef.id };
 });
