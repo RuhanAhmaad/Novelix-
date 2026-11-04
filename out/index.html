@@ -518,6 +518,99 @@
       border-radius: 3px;
       flex-shrink: 0;
     }
+    /* Professional Auth Modal Styling */
+    .auth-tab-pill {
+      position: relative;
+      background: #14141D;
+      border: 1px solid #262638;
+      border-radius: 12px;
+      padding: 4px;
+      display: flex;
+    }
+    .auth-tab-btn {
+      flex: 1;
+      padding: 9px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 9px;
+      color: #9693A4;
+      transition: all 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .auth-tab-btn.active {
+      background: #1B1B27;
+      color: #FFFFFF;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(146, 112, 255, 0.25);
+    }
+    .auth-input-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .auth-input-group svg.input-icon {
+      position: absolute;
+      left: 14px;
+      width: 16px;
+      height: 16px;
+      color: #9693A4;
+      pointer-events: none;
+      transition: color 0.2s ease;
+    }
+    .auth-input-group input:focus ~ svg.input-icon {
+      color: #9270FF;
+    }
+    .auth-input-group input {
+      width: 100%;
+      padding-left: 42px;
+      padding-right: 14px;
+      padding-top: 11px;
+      padding-bottom: 11px;
+      font-size: 13px;
+      border-radius: 12px;
+      background: #14141D;
+      border: 1px solid #262638;
+      color: #F5F3FA;
+      transition: all 0.2s ease;
+    }
+    .auth-input-group input:focus {
+      border-color: #9270FF;
+      box-shadow: 0 0 0 3px rgba(146, 112, 255, 0.18);
+      background: #171722;
+    }
+    .auth-input-group .toggle-pw-btn {
+      position: absolute;
+      right: 12px;
+      padding: 6px;
+      color: #9693A4;
+      border-radius: 6px;
+      transition: color 0.15s ease;
+    }
+    .auth-input-group .toggle-pw-btn:hover {
+      color: #F5F3FA;
+    }
+    .google-sign-in-btn {
+      background: #1B1B27;
+      border: 1px solid #262638;
+      color: #F5F3FA;
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    .google-sign-in-btn:hover, .google-sign-in-btn:active {
+      border-color: rgba(146, 112, 255, 0.45);
+      background: #20202E;
+      transform: scale3d(0.985, 0.985, 1);
+    }
   </style>
 </head>
 <body>
@@ -1552,93 +1645,172 @@
      12. AUTHENTICATION MODAL (REDESIGNED)
 ═══════════════════════════════════════════════════════════ -->
 <div id="authModal" class="modal-backdrop" onclick="if(event.target===this)closeAuthModal()">
-  <div class="modal-sheet">
-    <div class="p-6">
+  <div class="modal-sheet max-h-[92vh] overflow-hidden flex flex-col">
+    <!-- Top drag handle / close row -->
+    <div class="px-5 pt-3 pb-1 flex items-center justify-between flex-shrink-0">
+      <div class="w-8 h-1 rounded-full bg-app-border mx-auto -mr-8"></div>
+      <button onclick="closeAuthModal()" class="w-8 h-8 rounded-full surface-card flex items-center justify-center text-app-muted hover:text-white transition-colors" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6 pt-1 overflow-y-auto flex-1">
+      <!-- Luxury Brand Header -->
       <div class="text-center mb-5">
-        <div class="w-10 h-10 rounded-xl bg-app-surface border border-app-border mx-auto mb-2 flex items-center justify-center font-display font-extrabold text-app-primary">N</div>
-        <h3 class="font-display font-bold text-lg text-white">NOVELIX</h3>
-        <p class="text-xs text-app-muted">Global Editorial Reading Ecosystem</p>
+        <div class="relative inline-flex items-center justify-center mb-2.5">
+          <div class="absolute -inset-3 bg-app-primary/20 rounded-2xl blur-lg pointer-events-none"></div>
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-app-surface to-app-sub border border-app-border flex items-center justify-center shadow-xl relative">
+            <svg viewBox="0 0 32 32" class="w-6 h-6" fill="none">
+              <rect width="32" height="32" rx="8" fill="#14141D"/>
+              <path d="M8 24V8L24 24V8" stroke="#9270FF" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="24" cy="9" r="2.2" fill="#B9A4FF"/>
+            </svg>
+          </div>
+        </div>
+        <h3 class="font-display font-extrabold text-xl text-white tracking-wide">NOVELIX</h3>
+        <p id="authSubtitle" class="text-xs text-app-muted mt-0.5">Welcome back to your reading & publishing sanctuary</p>
       </div>
 
-      <!-- Tab Switcher -->
-      <div class="flex bg-app-sub p-1 rounded-xl mb-4">
-        <button type="button" id="authTabLogin" onclick="setAuthMode('login')" class="flex-1 py-2 text-xs font-semibold rounded-lg bg-app-surface text-white">Sign In</button>
-        <button type="button" id="authTabRegister" onclick="setAuthMode('register')" class="flex-1 py-2 text-xs font-semibold rounded-lg text-app-muted">Register</button>
+      <!-- In-Modal Feedback / Error Banner -->
+      <div id="authErrorBanner" class="hidden mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/25 flex items-start gap-2.5 text-left animate-[pageFadeIn_0.2s_ease]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" class="w-4 h-4 flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="authErrorText" class="text-xs text-red-300 flex-1 leading-snug"></span>
+      </div>
+
+      <!-- Tab Switcher Segmented Pill -->
+      <div class="auth-tab-pill mb-4">
+        <button type="button" id="authTabLogin" onclick="setAuthMode('login')" class="auth-tab-btn active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Sign In
+        </button>
+        <button type="button" id="authTabRegister" onclick="setAuthMode('register')" class="auth-tab-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          Create Account
+        </button>
       </div>
 
       <!-- Login Form -->
-      <form id="authLoginForm" class="space-y-3" onsubmit="event.preventDefault(); executeEmailLogin()">
+      <form id="authLoginForm" class="space-y-3.5" onsubmit="event.preventDefault(); executeEmailLogin()">
         <div>
-          <label class="block text-xs font-semibold text-app-muted mb-1">Email</label>
-          <input type="email" id="loginEmailInput" required placeholder="reader@novelix.app" class="w-full px-3.5 py-2.5 text-xs">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-app-muted mb-1">Password</label>
-          <div class="relative">
-            <input type="password" id="loginPasswordInput" required placeholder="••••••••" class="w-full px-3.5 py-2.5 text-xs pr-10">
-            <button type="button" onclick="togglePasswordVisibility('loginPasswordInput')" class="absolute right-3 top-2.5 text-app-muted text-xs">👁</button>
+          <label class="block text-[11px] font-semibold text-app-muted uppercase tracking-wider mb-1.5">Email Address</label>
+          <div class="auth-input-group">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="input-icon"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <input type="email" id="loginEmailInput" required placeholder="reader@novelix.app" autocomplete="email" oninput="clearAuthError()">
           </div>
         </div>
-        <div class="flex items-center justify-between text-xs">
-          <label class="flex items-center gap-1.5 cursor-pointer text-app-muted">
-            <input type="checkbox" id="loginRememberMe" class="rounded border-app-border text-app-primary"> Remember session
-          </label>
-          <button type="button" onclick="showForgotPasswordForm()" class="text-app-primary hover:underline">Forgot password?</button>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-app-muted uppercase tracking-wider mb-1.5">Password</label>
+          <div class="auth-input-group">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="input-icon"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="loginPasswordInput" required placeholder="••••••••" autocomplete="current-password" oninput="clearAuthError()">
+            <button type="button" onclick="togglePasswordVisibility('loginPasswordInput', this)" class="toggle-pw-btn" aria-label="Toggle password visibility">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
-        <button type="submit" id="btnActionLogin" class="btn-primary text-xs w-full py-2.5 font-semibold">Sign In</button>
+
+        <div class="flex items-center justify-between text-xs pt-0.5">
+          <label class="flex items-center gap-2 cursor-pointer text-app-muted hover:text-white transition-colors">
+            <input type="checkbox" id="loginRememberMe" checked class="rounded border-app-border text-app-primary focus:ring-0 focus:ring-offset-0">
+            <span class="text-xs">Remember me</span>
+          </label>
+          <button type="button" onclick="showForgotPasswordForm()" class="text-app-primary hover:text-app-secondary font-medium transition-colors">Forgot password?</button>
+        </div>
+
+        <button type="submit" id="btnActionLogin" class="btn-primary text-xs w-full py-3 font-bold tracking-wide flex items-center justify-center gap-2">
+          <span>Sign In to NOVELIX</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
       </form>
 
       <!-- Registration Form -->
-      <form id="authRegisterForm" class="hidden space-y-3" onsubmit="event.preventDefault(); executeEmailRegister()">
+      <form id="authRegisterForm" class="hidden space-y-3.5" onsubmit="event.preventDefault(); executeEmailRegister()">
         <div>
-          <label class="block text-xs font-semibold text-app-muted mb-1">Author / Pen Name</label>
-          <input type="text" id="regNameInput" required placeholder="Your Display Name" class="w-full px-3.5 py-2.5 text-xs">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-app-muted mb-1">Email</label>
-          <input type="email" id="regEmailInput" required placeholder="author@novelix.app" class="w-full px-3.5 py-2.5 text-xs">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-app-muted mb-1">Password</label>
-          <div class="relative">
-            <input type="password" id="regPasswordInput" required placeholder="At least 6 characters" class="w-full px-3.5 py-2.5 text-xs pr-10">
-            <button type="button" onclick="togglePasswordVisibility('regPasswordInput')" class="absolute right-3 top-2.5 text-app-muted text-xs">👁</button>
+          <label class="block text-[11px] font-semibold text-app-muted uppercase tracking-wider mb-1.5">Pen Name / Display Name</label>
+          <div class="auth-input-group">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="input-icon"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="regNameInput" required placeholder="Author or Reader Name" autocomplete="name" oninput="clearAuthError()">
           </div>
         </div>
-        <label class="flex items-center gap-1.5 text-[11px] text-app-muted cursor-pointer">
-          <input type="checkbox" required class="rounded border-app-border text-app-primary">
-          I accept the Terms of Service & Privacy Policy
+
+        <div>
+          <label class="block text-[11px] font-semibold text-app-muted uppercase tracking-wider mb-1.5">Email Address</label>
+          <div class="auth-input-group">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="input-icon"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <input type="email" id="regEmailInput" required placeholder="author@novelix.app" autocomplete="email" oninput="clearAuthError()">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-app-muted uppercase tracking-wider mb-1.5">Create Password</label>
+          <div class="auth-input-group">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="input-icon"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="regPasswordInput" required placeholder="At least 6 characters" autocomplete="new-password" oninput="clearAuthError()">
+            <button type="button" onclick="togglePasswordVisibility('regPasswordInput', this)" class="toggle-pw-btn" aria-label="Toggle password visibility">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <label class="flex items-start gap-2 text-[11px] text-app-muted cursor-pointer pt-0.5 leading-snug">
+          <input type="checkbox" required class="rounded border-app-border text-app-primary mt-0.5 focus:ring-0">
+          <span>I agree to the <a href="#terms" onclick="event.preventDefault(); showToast('NOVELIX Terms of Service')" class="text-app-primary hover:underline">Terms of Service</a> & <a href="#privacy" onclick="event.preventDefault(); showToast('NOVELIX Privacy Policy')" class="text-app-primary hover:underline">Privacy Policy</a></span>
         </label>
-        <button type="submit" id="btnActionRegister" class="btn-primary text-xs w-full py-2.5 font-semibold">Create Account</button>
+
+        <button type="submit" id="btnActionRegister" class="btn-primary text-xs w-full py-3 font-bold tracking-wide flex items-center justify-center gap-2">
+          <span>Create NOVELIX Account</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
       </form>
 
       <!-- Forgot Password Form -->
-      <form id="authForgotForm" class="hidden space-y-3" onsubmit="event.preventDefault(); executePasswordReset()">
-        <p class="text-xs text-app-muted leading-relaxed">Enter your registered email address and we will dispatch a password recovery link.</p>
-        <div>
-          <label class="block text-xs font-semibold text-app-muted mb-1">Account Email</label>
-          <input type="email" id="forgotEmailInput" required placeholder="your.email@example.com" class="w-full px-3.5 py-2.5 text-xs">
+      <form id="authForgotForm" class="hidden space-y-3.5" onsubmit="event.preventDefault(); executePasswordReset()">
+        <div class="p-3.5 rounded-xl bg-app-sub border border-app-border text-left">
+          <p class="text-xs text-white font-semibold mb-1">Reset Account Password</p>
+          <p class="text-[11px] text-app-muted leading-relaxed">Enter your registered email address and we will dispatch an official password recovery link.</p>
         </div>
-        <button type="submit" id="btnActionReset" class="btn-primary text-xs w-full py-2.5 font-semibold">Send Reset Link</button>
-        <button type="button" onclick="setAuthMode('login')" class="text-xs text-center w-full text-app-muted hover:text-white pt-1">Return to Sign In</button>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-app-muted uppercase tracking-wider mb-1.5">Registered Email</label>
+          <div class="auth-input-group">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="input-icon"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <input type="email" id="forgotEmailInput" required placeholder="your.email@example.com" autocomplete="email" oninput="clearAuthError()">
+          </div>
+        </div>
+
+        <button type="submit" id="btnActionReset" class="btn-primary text-xs w-full py-3 font-bold tracking-wide flex items-center justify-center gap-2">
+          <span>Send Recovery Link</span>
+        </button>
+
+        <button type="button" onclick="setAuthMode('login')" class="text-xs text-center w-full text-app-muted hover:text-white pt-1 transition-colors flex items-center justify-center gap-1.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Return to Sign In
+        </button>
       </form>
 
-      <!-- Divider -->
+      <!-- Elegant Divider -->
       <div class="relative my-4 text-center">
         <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-app-border"></div></div>
-        <span class="relative bg-app-sub px-3 text-[10px] uppercase tracking-wider text-app-muted">Or continue with</span>
+        <span class="relative bg-[#14141D] px-3 text-[10px] uppercase font-semibold tracking-widest text-app-muted">Or continue with</span>
       </div>
 
-      <!-- Real Google Sign-In Button (Capacitor Android Native & Web) -->
-      <button onclick="executeGoogleAuth()" class="surface-card w-full py-2.5 px-4 flex items-center justify-center gap-2.5 hover:border-app-primary">
-        <svg viewBox="0 0 24 24" class="w-4 h-4">
-          <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
-          <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/>
-          <path fill="#FBBC05" d="M5.6 14.8c-.3-.8-.4-1.8-.4-2.8s.2-2 .4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z"/>
-          <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2-6.4-4.8L1.9 16.4C3.7 20.4 7.5 23 12 23z"/>
+      <!-- Official Branded Google Sign-In Button -->
+      <button onclick="executeGoogleAuth()" class="google-sign-in-btn w-full">
+        <svg viewBox="0 0 24 24" class="w-4 h-4 flex-shrink-0">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
         </svg>
-        <span class="text-xs font-semibold text-white">Continue with Google</span>
+        <span>Continue with Google</span>
       </button>
+
+      <!-- Trust & Security Assurance Badge -->
+      <div class="mt-5 pt-3 border-t border-app-border/60 flex items-center justify-center gap-2 text-[10px] text-app-muted">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3 text-emerald-400 flex-shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>256-bit SSL Encrypted • Powered by Firebase Authentication</span>
+      </div>
     </div>
   </div>
 </div>
@@ -2024,9 +2196,13 @@ async function executeGoogleAuth() {
 }
 
 async function executeEmailLogin() {
+  clearAuthError();
   const email = document.getElementById('loginEmailInput').value.trim();
   const password = document.getElementById('loginPasswordInput').value;
-  if (!email || !password) { showToast('Enter email and password'); return; }
+  if (!email || !password) {
+    setAuthError('Please enter both your email and password.');
+    return;
+  }
 
   setButtonLoading('btnActionLogin', true, 'Signing in...');
   try {
@@ -2034,18 +2210,26 @@ async function executeEmailLogin() {
     showToast('Signed in successfully');
     closeAuthModal();
   } catch(err) {
-    showToast(err.message);
+    setAuthError(err.message);
+    showToast('Sign in failed: please check your credentials');
   } finally {
-    setButtonLoading('btnActionLogin', false, 'Sign In');
+    setButtonLoading('btnActionLogin', false, 'Sign In to NOVELIX');
   }
 }
 
 async function executeEmailRegister() {
+  clearAuthError();
   const name = document.getElementById('regNameInput').value.trim();
   const email = document.getElementById('regEmailInput').value.trim();
   const password = document.getElementById('regPasswordInput').value;
-  if (!name || !email || !password) { showToast('Please complete all registration fields'); return; }
-  if (password.length < 6) { showToast('Password must be at least 6 characters'); return; }
+  if (!name || !email || !password) {
+    setAuthError('Please complete all fields to create your account.');
+    return;
+  }
+  if (password.length < 6) {
+    setAuthError('Password must be at least 6 characters in length.');
+    return;
+  }
 
   setButtonLoading('btnActionRegister', true, 'Creating account...');
   try {
@@ -2066,25 +2250,30 @@ async function executeEmailRegister() {
     showToast('Account created successfully');
     closeAuthModal();
   } catch(err) {
-    showToast(err.message);
+    setAuthError(err.message);
+    showToast('Registration failed: ' + err.message);
   } finally {
-    setButtonLoading('btnActionRegister', false, 'Create Account');
+    setButtonLoading('btnActionRegister', false, 'Create NOVELIX Account');
   }
 }
 
 async function executePasswordReset() {
+  clearAuthError();
   const email = document.getElementById('forgotEmailInput').value.trim();
-  if (!email) { showToast('Please enter your email address'); return; }
+  if (!email) {
+    setAuthError('Please enter the email address linked to your account.');
+    return;
+  }
 
-  setButtonLoading('btnActionReset', true, 'Sending...');
+  setButtonLoading('btnActionReset', true, 'Sending link...');
   try {
     await auth.sendPasswordResetEmail(email);
     showToast('Password reset link sent to your email');
     setAuthMode('login');
   } catch(err) {
-    showToast(err.message);
+    setAuthError(err.message);
   } finally {
-    setButtonLoading('btnActionReset', false, 'Send Reset Link');
+    setButtonLoading('btnActionReset', false, 'Send Recovery Link');
   }
 }
 
@@ -2124,33 +2313,88 @@ async function signOutUser() {
   }
 }
 
-function openAuthModal() {
+function setAuthError(msg) {
+  const banner = document.getElementById('authErrorBanner');
+  const text = document.getElementById('authErrorText');
+  if (!banner || !text) return;
+  if (!msg) {
+    banner.classList.add('hidden');
+    text.textContent = '';
+    return;
+  }
+  let friendly = msg;
+  if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
+    friendly = 'Incorrect email or password. Please verify your credentials and try again.';
+  } else if (msg.includes('email-already-in-use')) {
+    friendly = 'This email address is already registered. Please sign in instead.';
+  } else if (msg.includes('invalid-email')) {
+    friendly = 'Please enter a valid email address.';
+  } else if (msg.includes('weak-password')) {
+    friendly = 'Password is too weak. Please use at least 6 characters.';
+  } else if (msg.includes('network-request-failed')) {
+    friendly = 'Network connection failure. Please verify your internet and retry.';
+  }
+  text.textContent = friendly;
+  banner.classList.remove('hidden');
+}
+
+function clearAuthError() {
+  const banner = document.getElementById('authErrorBanner');
+  if (banner) banner.classList.add('hidden');
+}
+
+function openAuthModal(initialMode = 'login') {
   if (APP_STATE.user) { switchPage('profile'); return; }
+  clearAuthError();
+  setAuthMode(initialMode);
   document.getElementById('authModal').classList.add('open');
 }
-function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
+
+function closeAuthModal() {
+  clearAuthError();
+  document.getElementById('authModal').classList.remove('open');
+}
 
 function setAuthMode(mode) {
+  clearAuthError();
   const isLogin = mode === 'login';
   const isReg = mode === 'register';
   document.getElementById('authLoginForm').classList.toggle('hidden', !isLogin);
   document.getElementById('authRegisterForm').classList.toggle('hidden', !isReg);
   document.getElementById('authForgotForm').classList.add('hidden');
 
-  document.getElementById('authTabLogin').className = isLogin ? 'flex-1 py-2 text-xs font-semibold rounded-lg bg-app-surface text-white' : 'flex-1 py-2 text-xs font-semibold rounded-lg text-app-muted';
-  document.getElementById('authTabRegister').className = isReg ? 'flex-1 py-2 text-xs font-semibold rounded-lg bg-app-surface text-white' : 'flex-1 py-2 text-xs font-semibold rounded-lg text-app-muted';
+  const sub = document.getElementById('authSubtitle');
+  if (sub) {
+    sub.textContent = isLogin
+      ? 'Welcome back to your reading & publishing sanctuary'
+      : 'Join the global network of authors and readers';
+  }
+
+  const tabLogin = document.getElementById('authTabLogin');
+  const tabReg = document.getElementById('authTabRegister');
+  if (tabLogin) tabLogin.className = isLogin ? 'auth-tab-btn active' : 'auth-tab-btn';
+  if (tabReg) tabReg.className = isReg ? 'auth-tab-btn active' : 'auth-tab-btn';
 }
 
 function showForgotPasswordForm() {
+  clearAuthError();
   document.getElementById('authLoginForm').classList.add('hidden');
   document.getElementById('authRegisterForm').classList.add('hidden');
   document.getElementById('authForgotForm').classList.remove('hidden');
+  const sub = document.getElementById('authSubtitle');
+  if (sub) sub.textContent = 'Account Security & Password Recovery';
 }
 
-function togglePasswordVisibility(inputId) {
+function togglePasswordVisibility(inputId, btn) {
   const input = document.getElementById(inputId);
   if (!input) return;
-  input.type = input.type === 'password' ? 'text' : 'password';
+  const isPw = input.type === 'password';
+  input.type = isPw ? 'text' : 'password';
+  if (btn) {
+    btn.innerHTML = isPw
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-app-primary"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  }
 }
 
 // ────────────────────────────────────────────────────────
