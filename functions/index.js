@@ -18,9 +18,10 @@ const auth = admin.auth();
 // Default storage quota per user: 500 MB in bytes
 const DEFAULT_USER_QUOTA_BYTES = 500 * 1024 * 1024;
 
-// Google Drive OAuth 2.0 Configuration
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '23165793827-un6a2kh299r2e7rroj9nivoku5josvlh.apps.googleusercontent.com';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '';
+// Google Drive OAuth 2.0 Configuration with Secret Manager & defineJsonSecret
+const { defineJsonSecret } = require('firebase-functions/params');
+const googleDriveOAuthClientJson = defineJsonSecret('GOOGLE_DRIVE_OAUTH_CLIENT_JSON');
+
 const CANONICAL_DRIVE_REDIRECT_URI = 'https://us-central1-novelxa-48f15.cloudfunctions.net/googleDriveCallback';
 const TOKEN_ENCRYPTION_SECRET = process.env.TOKEN_ENCRYPTION_SECRET || 'novelix-super-secure-aes256-key-32chars!';
 const GOOGLE_DRIVE_SCOPES = [
@@ -28,6 +29,35 @@ const GOOGLE_DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile'
 ].join(' ');
+
+/**
+ * Resolves Google OAuth credentials from Secret Manager (GOOGLE_DRIVE_OAUTH_CLIENT_JSON)
+ * or fallback environment variables.
+ */
+function getGoogleOAuthCredentials() {
+  let clientId = '';
+  let clientSecret = '';
+
+  try {
+    const jsonVal = googleDriveOAuthClientJson.value();
+    if (jsonVal) {
+      const config = jsonVal.web || jsonVal.installed || jsonVal;
+      clientId = config.client_id || '';
+      clientSecret = config.client_secret || '';
+    }
+  } catch (e) {
+    // Secret not available in current execution context or running in local mode
+  }
+
+  if (!clientId) {
+    clientId = process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '23165793827-un6a2kh299r2e7rroj9nivoku5josvlh.apps.googleusercontent.com';
+  }
+  if (!clientSecret) {
+    clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '';
+  }
+
+  return { clientId, clientSecret };
+}
 
 /**
  * Token encryption / decryption helpers for secure storage of refresh tokens
@@ -396,12 +426,13 @@ exports.broadcastAnnouncement = onCall(async (request) => {
  * 8. GOOGLE DRIVE OAUTH AUTHORIZATION URL GENERATOR (Callable Function)
  * Securely initiates the OAuth 2.0 authorization code flow.
  */
-exports.getGoogleDriveAuthUrl = onCall(async (request) => {
+exports.getGoogleDriveAuthUrl = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
   const callerUid = request.auth ? request.auth.uid : null;
   if (!callerUid) {
     throw new HttpsError('unauthenticated', 'User must be authenticated with NOVELIX to connect Google Drive.');
   }
 
+  const { clientId } = getGoogleOAuthCredentials();
   const clientRedirectUri = (request.data && request.data.redirectUri) 
     ? request.data.redirectUri 
     : CANONICAL_DRIVE_REDIRECT_URI;
@@ -418,7 +449,7 @@ exports.getGoogleDriveAuthUrl = onCall(async (request) => {
   });
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: clientId,
     redirect_uri: clientRedirectUri,
     response_type: 'code',
     scope: GOOGLE_DRIVE_SCOPES,
@@ -439,12 +470,13 @@ exports.getGoogleDriveAuthUrl = onCall(async (request) => {
  * 9. GOOGLE DRIVE OAUTH DIRECT INITIATION (HTTP Endpoint)
  * Can be opened directly in a browser or webview to initiate Google Drive linking.
  */
-exports.googleDriveAuth = onRequest(async (req, res) => {
+exports.googleDriveAuth = onRequest({ secrets: [googleDriveOAuthClientJson] }, async (req, res) => {
   const uid = req.query.uid;
   if (!uid) {
     return res.status(400).send('Missing user ID (uid). Please initiate connection from NOVELIX.');
   }
 
+  const { clientId } = getGoogleOAuthCredentials();
   const clientRedirectUri = req.query.redirect_uri || CANONICAL_DRIVE_REDIRECT_URI;
   const stateId = crypto.randomBytes(24).toString('hex');
 
@@ -456,7 +488,7 @@ exports.googleDriveAuth = onRequest(async (req, res) => {
   });
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: clientId,
     redirect_uri: clientRedirectUri,
     response_type: 'code',
     scope: GOOGLE_DRIVE_SCOPES,
@@ -476,7 +508,7 @@ exports.googleDriveAuth = onRequest(async (req, res) => {
  * Exchanges authorization code for tokens, retrieves user profile,
  * and securely saves the connected account with encrypted tokens.
  */
-exports.googleDriveCallback = onRequest(async (req, res) => {
+exports.googleDriveCallback = onRequest({ secrets: [googleDriveOAuthClientJson] }, async (req, res) => {
   const { code, state, error, error_description } = req.query;
 
   // Handle Google OAuth rejection / error
@@ -500,9 +532,10 @@ exports.googleDriveCallback = onRequest(async (req, res) => {
   const session = sessionDoc.data();
   const uid = session.uid;
   const redirectUri = session.redirectUri || CANONICAL_DRIVE_REDIRECT_URI;
+  const { clientId, clientSecret } = getGoogleOAuthCredentials();
 
-  if (!GOOGLE_CLIENT_SECRET) {
-    console.warn('GOOGLE_CLIENT_SECRET is not configured in Cloud Functions environment.');
+  if (!clientSecret) {
+    console.warn('Google Drive Client Secret is not configured in Secret Manager or environment.');
   }
 
   try {
@@ -512,8 +545,8 @@ exports.googleDriveCallback = onRequest(async (req, res) => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code: code,
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code'
       })
@@ -602,7 +635,7 @@ exports.googleDriveCallback = onRequest(async (req, res) => {
  * 11. GET VALID GOOGLE DRIVE ACCESS TOKEN (Callable Function)
  * Automatically refreshes the access token using the encrypted refresh token if expired.
  */
-exports.getGoogleDriveAccessToken = onCall(async (request) => {
+exports.getGoogleDriveAccessToken = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
   const callerUid = request.auth ? request.auth.uid : null;
   if (!callerUid) {
     throw new HttpsError('unauthenticated', 'User must be authenticated.');
@@ -642,13 +675,15 @@ exports.getGoogleDriveAccessToken = onCall(async (request) => {
     throw new HttpsError('internal', 'Unable to decrypt refresh token.');
   }
 
+  const { clientId, clientSecret } = getGoogleOAuthCredentials();
+
   try {
     const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         refresh_token: refreshToken,
         grant_type: 'refresh_token'
       })
