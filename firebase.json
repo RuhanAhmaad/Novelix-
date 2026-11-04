@@ -27,6 +27,20 @@
     ],
     "rewrites": [
       {
+        "source": "/api/drive/callback",
+        "function": {
+          "functionId": "googleDriveCallback",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/drive/auth",
+        "function": {
+          "functionId": "googleDriveAuth",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

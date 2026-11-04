@@ -1828,10 +1828,50 @@ function updateDraftStorageEstimate() {
 // ────────────────────────────────────────────────────────
 // GOOGLE DRIVE MULTI-ACCOUNT INTEGRATION
 // ────────────────────────────────────────────────────────
-function initiateGoogleDriveConnection() {
+// GOOGLE DRIVE CLOUD INTEGRATION (OAUTH 2.0 & BACKEND FLOW)
+// ────────────────────────────────────────────────────────
+const CANONICAL_DRIVE_REDIRECT_URI = "https://us-central1-novelxa-48f15.cloudfunctions.net/googleDriveCallback";
+
+// Listen for OAuth callback completion via postMessage from popup
+if (typeof window !== 'undefined') {
+  window.addEventListener('message', async (event) => {
+    if (event.data && event.data.type === 'NOVELIX_DRIVE_CONNECTED') {
+      showToast(`Google Drive connected: ${event.data.email || ''}`);
+      if (typeof loadConnectedDriveAccounts === 'function') {
+        await loadConnectedDriveAccounts();
+      }
+    } else if (event.data && event.data.type === 'NOVELIX_DRIVE_ERROR') {
+      showToast(`Drive connection failed: ${event.data.message || 'Unknown error'}`);
+    }
+  });
+}
+
+async function initiateGoogleDriveConnection() {
   if (!APP_STATE.user) { openAuthModal(); return; }
 
-  // Use Google Identity Services Token Client
+  showToast('Initiating Google Drive Authorization...');
+
+  // Strategy 1: Try secure backend OAuth 2.0 Authorization Code Flow
+  try {
+    const getAuthUrlFn = functions.httpsCallable('getGoogleDriveAuthUrl');
+    const res = await getAuthUrlFn({ redirectUri: CANONICAL_DRIVE_REDIRECT_URI });
+    if (res.data && res.data.authUrl) {
+      const popup = window.open(res.data.authUrl, 'NOVELIX_Google_Drive_Connect', 'width=540,height=680,menubar=no,toolbar=no');
+      if (popup) {
+        const timer = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(timer);
+            loadConnectedDriveAccounts();
+          }
+        }, 1000);
+        return;
+      }
+    }
+  } catch (backendErr) {
+    console.log('Backend OAuth initiation unavailable or pending deployment, falling back to client GIS:', backendErr.message);
+  }
+
+  // Strategy 2: Client GIS Token Client Flow (direct browser fallback)
   if (window.google && window.google.accounts && window.google.accounts.oauth2) {
     const tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
@@ -1904,15 +1944,40 @@ async function loadConnectedDriveAccounts() {
 
 async function disconnectDriveAccount(accId) {
   if (!confirm('Disconnect this Google Drive account?')) return;
-  await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).delete();
+  try {
+    const disconnectFn = functions.httpsCallable('disconnectGoogleDriveAccount');
+    await disconnectFn({ accountId: accId });
+  } catch(e) {
+    await db.collection('users').doc(APP_STATE.user.uid).collection('drive_accounts').doc(accId).delete();
+  }
   showToast('Account disconnected');
   loadConnectedDriveAccounts();
 }
 
 async function browseDriveAccountFiles(accId) {
-  const acc = APP_STATE.connectedDriveAccounts.find(a => a.id === accId);
-  if (!acc || !acc.accessToken) {
-    showToast('Drive token missing. Please reconnect.');
+  let acc = APP_STATE.connectedDriveAccounts.find(a => a.id === accId);
+  if (!acc) return;
+
+  let token = acc.accessToken;
+
+  // If token is missing, request fresh token from backend callable
+  if (!token) {
+    try {
+      showToast('Fetching Drive access credentials...');
+      const getTokenFn = functions.httpsCallable('getGoogleDriveAccessToken');
+      const res = await getTokenFn({ accountId: accId });
+      if (res.data && res.data.accessToken) {
+        token = res.data.accessToken;
+        acc.accessToken = token;
+      }
+    } catch(err) {
+      console.warn('Could not refresh token from backend:', err.message);
+    }
+  }
+
+  if (!token) {
+    showToast('Drive token expired. Re-authenticating...');
+    initiateGoogleDriveConnection();
     return;
   }
 

@@ -49,9 +49,17 @@ service cloud.firestore {
       match /drive_accounts/{accountId} {
         allow read, write: if isOwner(userId);
       }
+      match /drive_secure_tokens/{tokenId} {
+        allow read, write: if false; // Server-only (Cloud Functions Admin SDK only)
+      }
       match /fcm_tokens/{tokenId} {
         allow read, write: if isOwner(userId);
       }
+    }
+
+    // ─── GOOGLE DRIVE OAUTH SESSIONS ───
+    match /drive_oauth_sessions/{sessionId} {
+      allow read, write: if false; // Server-only
     }
 
     // ─── CREATOR VERIFICATION REQUESTS ───
