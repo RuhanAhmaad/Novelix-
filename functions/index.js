@@ -26,6 +26,7 @@ const CANONICAL_DRIVE_REDIRECT_URI = 'https://us-central1-novelxa-48f15.cloudfun
 const TOKEN_ENCRYPTION_SECRET = process.env.TOKEN_ENCRYPTION_SECRET || 'novelix-super-secure-aes256-key-32chars!';
 const GOOGLE_DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile'
 ].join(' ');
@@ -1044,4 +1045,245 @@ function renderCallbackHtml(isSuccess, message, data = {}) {
 </body>
 </html>`;
 }
+
+/**
+ * 16. UPLOAD PDF TO GOOGLE DRIVE (Callable Function)
+ * Uploads a PDF manuscript directly into a 'NOVELIX' folder in author's Google Drive.
+ */
+exports.uploadPdfToDrive = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+
+  const { accountId, fileName, fileBase64 } = request.data || {};
+  if (!accountId || !fileName || !fileBase64) {
+    throw new HttpsError('invalid-argument', 'Missing accountId, fileName, or fileBase64');
+  }
+
+  const tokenData = await getValidDriveToken(callerUid, accountId);
+  const token = tokenData.accessToken;
+
+  // 1. Locate or create 'NOVELIX' folder in author's Google Drive
+  let folderId = null;
+  try {
+    const folderSearchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("name = 'NOVELIX' and mimeType = 'application/vnd.google-apps.folder' and trashed = false")}&fields=files(id,name)`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (folderSearchRes.ok) {
+      const searchData = await folderSearchRes.json();
+      if (searchData.files && searchData.files.length > 0) {
+        folderId = searchData.files[0].id;
+      }
+    }
+
+    if (!folderId) {
+      const createFolderRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: 'NOVELIX',
+          mimeType: 'application/vnd.google-apps.folder'
+        })
+      });
+      if (createFolderRes.ok) {
+        const createdFolder = await createFolderRes.json();
+        folderId = createdFolder.id;
+      }
+    }
+  } catch (fErr) {
+    console.warn('Folder creation warning:', fErr.message);
+  }
+
+  // 2. Upload file via multipart upload to Google Drive
+  const buffer = Buffer.from(fileBase64, 'base64');
+  const boundary = '-------314159265358979323846';
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelimiter = `\r\n--${boundary}--`;
+
+  const metadata = {
+    name: fileName,
+    mimeType: 'application/pdf',
+    ...(folderId ? { parents: [folderId] } : {})
+  };
+
+  const multipartRequestBody = Buffer.concat([
+    Buffer.from(
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: application/pdf\r\n\r\n'
+    ),
+    buffer,
+    Buffer.from(closeDelimiter)
+  ]);
+
+  const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,webContentLink', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`
+    },
+    body: multipartRequestBody
+  });
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text();
+    console.error('Google Drive upload error:', uploadRes.status, errText);
+    throw new HttpsError('internal', `Failed to upload PDF to Google Drive (${uploadRes.status})`);
+  }
+
+  const uploadData = await uploadRes.json();
+  return {
+    success: true,
+    fileId: uploadData.id,
+    fileName: uploadData.name || fileName,
+    fileSize: buffer.length,
+    folderId: folderId
+  };
+});
+
+/**
+ * 17. GET READER PDF DATA (Callable Function)
+ * Retrieves PDF content securely for authorized readers.
+ * Handles both Google Drive storage and Firebase Storage.
+ */
+exports.getReaderPdfData = onCall({ secrets: [googleDriveOAuthClientJson] }, async (request) => {
+  const callerUid = request.auth ? request.auth.uid : 'anonymous';
+  const { bookId, language } = request.data || {};
+  if (!bookId) {
+    throw new HttpsError('invalid-argument', 'Missing bookId');
+  }
+
+  const bookDoc = await db.collection('books').doc(bookId).get();
+  if (!bookDoc.exists) {
+    throw new HttpsError('not-found', 'Book not found.');
+  }
+
+  const book = bookDoc.data();
+  const isAuthor = callerUid && callerUid === book.authorId;
+  const isPublic = book.visibility === 'public' && (book.publishStatus === 'published' || book.status === 'published');
+  if (!isAuthor && !isPublic) {
+    throw new HttpsError('permission-denied', 'You do not have permission to read this book.');
+  }
+
+  const editions = book.languages || [];
+  const targetEdition = (language ? editions.find(e => e.language === language) : null) || editions[0];
+  if (!targetEdition) {
+    throw new HttpsError('not-found', 'No edition found for this book.');
+  }
+
+  const storageProvider = targetEdition.storageProvider || book.storageProvider || (targetEdition.driveFileId ? 'drive' : 'storage');
+
+  if (storageProvider === 'drive' && (targetEdition.driveFileId || targetEdition.fileId)) {
+    const driveFileId = targetEdition.driveFileId || targetEdition.fileId;
+    const driveAccountId = targetEdition.driveAccountId || book.driveAccountId;
+    const authorUid = book.authorId;
+
+    const tokenData = await getValidDriveToken(authorUid, driveAccountId);
+    const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${tokenData.accessToken}` }
+    });
+
+    if (!driveRes.ok) {
+      throw new HttpsError('internal', `Failed to fetch file from Google Drive (${driveRes.status})`);
+    }
+
+    const arrayBuffer = await driveRes.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    return {
+      success: true,
+      storageProvider: 'drive',
+      base64: base64,
+      fileName: targetEdition.fileName || `${book.title}.pdf`,
+      fileSize: arrayBuffer.byteLength
+    };
+  }
+
+  if (targetEdition.fileUrl) {
+    return {
+      success: true,
+      storageProvider: 'storage',
+      fileUrl: targetEdition.fileUrl,
+      fileName: targetEdition.fileName || `${book.title}.pdf`,
+      fileSize: targetEdition.fileSize || 0
+    };
+  }
+
+  throw new HttpsError('not-found', 'No downloadable manuscript found for this book edition.');
+});
+
+/**
+ * 18. STREAM DRIVE PDF (HTTP Endpoint)
+ * Streams PDF manuscript securely to authorized reader webviews / canvas.
+ */
+exports.streamDrivePdf = onRequest({ cors: true, secrets: [googleDriveOAuthClientJson] }, async (req, res) => {
+  const { bookId, language, token } = req.query || {};
+  if (!bookId) {
+    return res.status(400).send('Missing bookId');
+  }
+
+  let callerUid = null;
+  if (token) {
+    try {
+      const decoded = await auth.verifyIdToken(token);
+      callerUid = decoded.uid;
+    } catch(e) {}
+  }
+
+  const bookDoc = await db.collection('books').doc(bookId).get();
+  if (!bookDoc.exists) {
+    return res.status(404).send('Book not found');
+  }
+
+  const book = bookDoc.data();
+  const isAuthor = callerUid && callerUid === book.authorId;
+  const isPublic = book.visibility === 'public' && (book.publishStatus === 'published' || book.status === 'published');
+  if (!isAuthor && !isPublic) {
+    return res.status(403).send('Access denied');
+  }
+
+  const editions = book.languages || [];
+  const targetEdition = (language ? editions.find(e => e.language === language) : null) || editions[0];
+  if (!targetEdition) {
+    return res.status(404).send('Edition not found');
+  }
+
+  const driveFileId = targetEdition.driveFileId || targetEdition.fileId;
+  if (!driveFileId) {
+    if (targetEdition.fileUrl) {
+      return res.redirect(targetEdition.fileUrl);
+    }
+    return res.status(404).send('File not found');
+  }
+
+  const driveAccountId = targetEdition.driveAccountId || book.driveAccountId;
+  try {
+    const tokenData = await getValidDriveToken(book.authorId, driveAccountId);
+    const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${tokenData.accessToken}` }
+    });
+
+    if (!driveRes.ok) {
+      return res.status(driveRes.status).send('Failed to fetch from Drive');
+    }
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${encodeURIComponent(targetEdition.fileName || 'book.pdf')}"`,
+      'Cache-Control': 'private, max-age=3600'
+    });
+
+    const arrayBuffer = await driveRes.arrayBuffer();
+    return res.send(Buffer.from(arrayBuffer));
+  } catch (err) {
+    console.error('Error streaming Drive PDF:', err);
+    return res.status(500).send(err.message);
+  }
+});
 

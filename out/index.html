@@ -1857,29 +1857,100 @@
 <!-- ════════════════════════════════════════════════════════
      14. DUAL ENGINE READER MODAL (PDF.JS & MANHWA CONTINUOUS)
 ═══════════════════════════════════════════════════════════ -->
-<div id="readerModal" class="modal-fullscreen">
-  <div class="safe-top bg-app-sub/90 backdrop-blur border-b border-app-border px-4 py-2.5 flex items-center justify-between flex-shrink-0">
-    <div class="flex items-center gap-2 truncate">
-      <button onclick="closeReaderModal()" class="w-8 h-8 rounded-full surface-card flex items-center justify-center text-white">←</button>
-      <h3 id="readerTitle" class="font-display font-semibold text-xs text-white truncate">Reading</h3>
+<div id="readerModal" class="modal-fullscreen flex flex-col bg-[#07070A] text-[#F5F3FA] select-none" data-theme="dark">
+  <!-- 1. Top Navigation & Control Bar -->
+  <div class="safe-top bg-[#0E0E17]/95 backdrop-blur-md border-b border-[#262638] px-4 py-2.5 flex items-center justify-between flex-shrink-0 z-20">
+    <div class="flex items-center gap-3 truncate max-w-[65%]">
+      <button onclick="closeReaderModal()" class="w-8 h-8 rounded-full bg-[#181824] hover:bg-[#232334] border border-[#2B2B3E] flex items-center justify-center text-white transition-all flex-shrink-0 active:scale-95">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+      <div class="truncate">
+        <h3 id="readerTitle" class="font-display font-semibold text-xs text-white truncate leading-tight">Reading</h3>
+        <p id="readerSubtitle" class="text-[10px] text-app-muted truncate">NOVELIX Mobile Reader</p>
+      </div>
     </div>
-    <div class="flex items-center gap-1.5">
-      <span id="readerPageIndicator" class="text-[11px] text-app-muted font-mono">1 / 1</span>
+    
+    <div class="flex items-center gap-1.5 flex-shrink-0">
+      <!-- Theme Switcher -->
+      <button onclick="cycleReaderTheme()" id="readerThemeBtn" title="Change Theme" class="w-7 h-7 rounded-lg bg-[#181824] hover:bg-[#232334] border border-[#2B2B3E] flex items-center justify-center text-[#B9A4FF] transition-all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+
+      <!-- Bookmark Page Button -->
+      <button onclick="toggleReaderBookmark()" id="readerBookmarkBtn" title="Bookmark Page" class="w-7 h-7 rounded-lg bg-[#181824] hover:bg-[#232334] border border-[#2B2B3E] flex items-center justify-center text-white transition-all">
+        <svg id="readerBookmarkIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button onclick="toggleReaderFullscreen()" id="readerFullscreenBtn" title="Toggle Fullscreen" class="w-7 h-7 rounded-lg bg-[#181824] hover:bg-[#232334] border border-[#2B2B3E] flex items-center justify-center text-white transition-all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
     </div>
   </div>
 
-  <div id="readerViewport" class="flex-1 overflow-y-auto flex items-center justify-center bg-[#07070A] p-2">
-    <canvas id="pdfRenderCanvas" class="max-w-full shadow-2xl rounded-sm"></canvas>
-    <div id="manhwaScrollContainer" class="hidden w-full max-w-xl mx-auto space-y-1"></div>
+  <!-- 2. Main Reader Viewport & Loading / Error States -->
+  <div id="readerViewport" class="flex-1 relative overflow-auto flex items-center justify-center p-2 sm:p-4 transition-colors duration-200">
+    <!-- Canvas for PDF rendering -->
+    <div id="canvasWrapper" class="relative max-w-full flex justify-center shadow-2xl">
+      <canvas id="pdfRenderCanvas" class="max-w-full rounded shadow-[0_12px_40px_rgba(0,0,0,0.6)]"></canvas>
+    </div>
+
+    <!-- Manhwa fallback -->
+    <div id="manhwaScrollContainer" class="hidden w-full max-w-xl mx-auto space-y-2"></div>
+
+    <!-- Reader Loading State Overlay -->
+    <div id="readerLoadingOverlay" class="absolute inset-0 bg-[#07070A]/90 backdrop-blur-sm flex flex-col items-center justify-center z-30 transition-opacity">
+      <div class="w-12 h-12 rounded-full border-2 border-app-primary border-t-transparent animate-spin mb-3"></div>
+      <p id="readerLoadingStatus" class="font-display font-medium text-xs text-white">Loading secure manuscript...</p>
+      <div class="w-48 h-1 bg-[#1A1A26] rounded-full mt-3 overflow-hidden">
+        <div id="readerLoadingProgress" class="h-full bg-app-primary transition-all duration-300" style="width: 15%"></div>
+      </div>
+      <span id="readerLoadingPercent" class="text-[10px] text-app-muted mt-1 font-mono">15%</span>
+    </div>
+
+    <!-- Reader Error State Overlay -->
+    <div id="readerErrorOverlay" class="hidden absolute inset-0 bg-[#07070A]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-30">
+      <div class="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mb-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <h4 class="font-display font-bold text-sm text-white mb-1">Failed to load manuscript</h4>
+      <p id="readerErrorMessage" class="text-xs text-app-muted max-w-xs mb-4">Could not retrieve the document. Please check connection.</p>
+      <div class="flex gap-2">
+        <button onclick="retryLoadReaderPdf()" class="btn-primary text-xs px-4 py-2">Retry Loading</button>
+        <button onclick="closeReaderModal()" class="btn-secondary text-xs px-4 py-2">Back</button>
+      </div>
+    </div>
   </div>
 
-  <div class="safe-bottom bg-app-sub/95 border-t border-app-border px-4 py-2 flex items-center justify-between flex-shrink-0">
-    <button onclick="changeReaderPage(-1)" class="btn-secondary text-xs px-3 py-1.5">Previous</button>
-    <div class="flex items-center gap-2">
-      <button onclick="zoomReader(-0.2)" class="w-7 h-7 rounded surface-card text-xs text-white font-mono">-</button>
-      <button onclick="zoomReader(0.2)" class="w-7 h-7 rounded surface-card text-xs text-white font-mono">+</button>
+  <!-- 3. Reader Bottom Controls & Page Scrubber -->
+  <div class="safe-bottom bg-[#0E0E17]/95 backdrop-blur-md border-t border-[#262638] px-4 py-2.5 flex flex-col gap-2 flex-shrink-0 z-20">
+    <!-- Page Scrubber & Position Indicator -->
+    <div class="flex items-center gap-3">
+      <span id="readerCurrentPageBadge" class="text-[11px] font-mono text-app-muted min-w-[36px]">p. 1</span>
+      <input type="range" id="readerPageSlider" min="1" max="1" value="1" oninput="handleReaderSliderChange(this.value)" class="flex-1 accent-[#9270FF] h-1.5 bg-[#1E1E2C] rounded-lg cursor-pointer">
+      <span id="readerTotalPagesBadge" class="text-[11px] font-mono text-app-muted min-w-[36px] text-right">/ 1</span>
     </div>
-    <button onclick="changeReaderPage(1)" class="btn-secondary text-xs px-3 py-1.5">Next</button>
+
+    <!-- Quick Navigation & Zoom Toolbar -->
+    <div class="flex items-center justify-between pt-1">
+      <div class="flex items-center gap-1.5">
+        <button onclick="changeReaderPage(-1)" class="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M15 18l-6-6 6-6"/></svg>
+          Prev
+        </button>
+        <button onclick="changeReaderPage(1)" class="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1">
+          Next
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-1 bg-[#141420] border border-[#232334] rounded-lg p-0.5">
+        <button onclick="zoomReader(-0.2)" title="Zoom Out" class="w-7 h-7 rounded text-xs text-white hover:bg-[#202030] flex items-center justify-center font-mono transition-all">-</button>
+        <button onclick="setFitMode('width')" title="Fit Width" class="px-2 h-7 rounded text-[10px] text-app-muted hover:text-white hover:bg-[#202030] transition-all font-semibold uppercase">Fit W</button>
+        <button onclick="setFitMode('page')" title="Fit Page" class="px-2 h-7 rounded text-[10px] text-app-muted hover:text-white hover:bg-[#202030] transition-all font-semibold uppercase">Fit P</button>
+        <button onclick="zoomReader(0.2)" title="Zoom In" class="w-7 h-7 rounded text-xs text-white hover:bg-[#202030] flex items-center justify-center font-mono transition-all">+</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2167,31 +2238,70 @@ async function executeSendVerificationEmail() {
  */
 async function executeGoogleAuth() {
   if (!auth) { showToast('Authentication engine unavailable'); return; }
+  clearAuthError();
+  setButtonLoading('btnActionLogin', true, 'Connecting to Google...');
+
   try {
+    const isCapacitor = !!(window.Capacitor && (typeof window.Capacitor.isNativePlatform === 'function' ? window.Capacitor.isNativePlatform() : window.Capacitor.platform !== 'web'));
+    const googleAuthPlugin = window.Capacitor?.Plugins?.GoogleAuth;
+
+    if (isCapacitor && googleAuthPlugin) {
+      console.log('[NOVELIX Auth] Initiating native Android Google Sign-In via GoogleAuth plugin...');
+      try {
+        await googleAuthPlugin.initialize({
+          clientId: '239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com',
+          scopes: ['profile', 'email'],
+          grantOfflineAccess: true,
+        });
+      } catch (initErr) {
+        console.warn('[NOVELIX Auth] GoogleAuth initialize note:', initErr);
+      }
+
+      const googleUser = await googleAuthPlugin.signIn();
+      console.log('[NOVELIX Auth] Native Google user authenticated:', googleUser?.email);
+
+      const idToken = googleUser?.authentication?.idToken || googleUser?.idToken;
+      if (!idToken) {
+        throw new Error('Google Sign-In returned no authentication token.');
+      }
+
+      const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+      const userCred = await auth.signInWithCredential(credential);
+      showToast(`Welcome back, ${userCred.user.displayName || 'Author'}!`);
+      closeAuthModal();
+      return;
+    }
+
+    // Web / Browser Fallback
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('email');
     provider.addScope('profile');
     provider.setCustomParameters({ prompt: 'select_account' });
 
-    const isCapacitor = window.Capacitor && (window.Capacitor.isNativePlatform ? window.Capacitor.isNativePlatform() : window.Capacitor.platform !== 'web');
-
-    if (isCapacitor) {
-      await auth.signInWithRedirect(provider);
-    } else {
-      try {
-        await auth.signInWithPopup(provider);
-        showToast('Signed in with Google');
-        closeAuthModal();
-      } catch(popupErr) {
-        if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/operation-not-supported-in-this-environment') {
-          await auth.signInWithRedirect(provider);
-        } else {
-          throw popupErr;
-        }
+    try {
+      const userCred = await auth.signInWithPopup(provider);
+      showToast(`Welcome back, ${userCred.user.displayName || 'Author'}!`);
+      closeAuthModal();
+    } catch(popupErr) {
+      if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/cancelled-popup-request') {
+        return; // User cancelled prompt
+      }
+      if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/operation-not-supported-in-this-environment') {
+        await auth.signInWithRedirect(provider);
+      } else {
+        throw popupErr;
       }
     }
   } catch(error) {
-    showToast(error.message || 'Google authentication error');
+    console.error('[NOVELIX Auth] Google authentication error:', error);
+    const errCode = error?.code || '';
+    const errMsg = error?.message || String(error);
+    if (errCode === '12501' || errMsg.includes('12501') || errMsg.includes('canceled') || errMsg.includes('cancelled') || errMsg.includes('popup-closed-by-user')) {
+      return; // Handled cancel
+    }
+    setAuthError(mapFirebaseAuthError ? mapFirebaseAuthError(error) : (error.message || 'Google authentication error'));
+  } finally {
+    setButtonLoading('btnActionLogin', false, 'Sign In');
   }
 }
 
@@ -2949,51 +3059,62 @@ async function importDriveFileToStudio(fileId, fileName, fileSize, token) {
     showGlobalError('IMPORT_FAILED', `Could not import "${fileName}" from Google Drive. Please verify the file is accessible and under quota.`, 'DRIVE_IMPORT_ERR', () => importDriveFileToStudio(fileId, fileName, fileSize, token));
   };
 
+  const targetIdx = (typeof APP_STATE._targetEditionIdx === 'number' && APP_STATE.publishEditions[APP_STATE._targetEditionIdx])
+    ? APP_STATE._targetEditionIdx
+    : (APP_STATE.publishEditions.length > 0 ? APP_STATE.publishEditions.length - 1 : 0);
+
+  if (!APP_STATE.publishEditions[targetIdx]) {
+    addEditionRow();
+  }
+
   // Strategy 1: Backend importGoogleDrivePdf
   if (APP_STATE._activeAccountId && typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
     try {
       const importFn = functions.httpsCallable('importGoogleDrivePdf');
       const res = await importFn({ accountId: APP_STATE._activeAccountId, fileId, fileName });
       if (res && res.data && res.data.success) {
-        const idx = APP_STATE.publishEditions.length;
-        addEditionRow();
-        APP_STATE.publishEditions[idx].driveFile = {
+        APP_STATE.publishEditions[targetIdx].driveFile = {
           fileId: fileId,
           fileName: fileName,
+          size: fileSize || res.data.size,
+          accountId: APP_STATE._activeAccountId,
           storagePath: res.data.storagePath,
           downloadUrl: res.data.downloadUrl
         };
-        const label = document.getElementById(`edFileLabel-${idx}`);
+        APP_STATE.publishEditions[targetIdx].storageProvider = 'drive';
+        APP_STATE.publishEditions[targetIdx].file = null;
+
+        const badge = document.getElementById(`edStatusBadge-${targetIdx}`);
         const sizeMB = fileSize ? (fileSize / (1024*1024)).toFixed(1) + ' MB' : 'Cloud';
-        if (label) label.textContent = `[Drive Cloud] ${fileName} (${sizeMB})`;
+        if (badge) {
+          badge.textContent = `[Google Drive] ${fileName} (${sizeMB})`;
+          badge.classList.remove('hidden');
+        }
         finishImportSuccess('Cloud Reference');
         return;
       }
     } catch(bErr) {
-      console.warn('[NOVELIX Drive] Backend PDF import fallback to client fetch:', bErr.message);
+      console.warn('[NOVELIX Drive] Backend PDF import fallback to direct reference:', bErr.message);
     }
   }
 
-  // Strategy 2: Client fetch
-  try {
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error(`Google Drive download error HTTP ${res.status}`);
-    const blob = await res.blob();
-    const importedFile = new File([blob], fileName, { type: 'application/pdf' });
+  // Strategy 2: Direct Drive file reference
+  APP_STATE.publishEditions[targetIdx].driveFile = {
+    fileId: fileId,
+    fileName: fileName,
+    size: fileSize,
+    accountId: APP_STATE._activeAccountId
+  };
+  APP_STATE.publishEditions[targetIdx].storageProvider = 'drive';
+  APP_STATE.publishEditions[targetIdx].file = null;
 
-    const idx = APP_STATE.publishEditions.length;
-    addEditionRow();
-    APP_STATE.publishEditions[idx].file = importedFile;
-    const label = document.getElementById(`edFileLabel-${idx}`);
-    if (label) label.textContent = `[Drive] ${fileName} (${(importedFile.size / (1024*1024)).toFixed(1)} MB)`;
-
-    finishImportSuccess('Downloaded');
-  } catch(e) {
-    console.error('Import error:', e);
-    handleImportError(e);
+  const badge = document.getElementById(`edStatusBadge-${targetIdx}`);
+  const sizeMB = fileSize ? (fileSize / (1024*1024)).toFixed(1) + ' MB' : 'Drive';
+  if (badge) {
+    badge.textContent = `[Google Drive] ${fileName} (${sizeMB})`;
+    badge.classList.remove('hidden');
   }
+  finishImportSuccess('Drive Reference');
 }
 
 function openDrivePickerModal() { document.getElementById('drivePickerModal').classList.add('open'); }
@@ -3552,39 +3673,178 @@ function addEditionRow() {
   const container = document.getElementById('editionRows');
   if (!container) return;
   const idx = APP_STATE.publishEditions.length;
-  APP_STATE.publishEditions.push({ language: 'English', file: null });
+
+  const hasDrive = APP_STATE.connectedDriveAccounts && APP_STATE.connectedDriveAccounts.length > 0;
+  const defaultProvider = hasDrive ? 'drive' : 'storage';
+
+  APP_STATE.publishEditions.push({
+    language: 'English',
+    storageProvider: defaultProvider,
+    file: null,
+    driveFile: null,
+    driveAccountId: hasDrive ? APP_STATE.connectedDriveAccounts[0].id : ''
+  });
 
   const div = document.createElement('div');
   div.id = `pubEditionRow-${idx}`;
-  div.className = 'surface-card p-3 space-y-2';
+  div.className = 'surface-card p-3 space-y-2.5 border border-[#262638] rounded-xl';
+
+  const driveOptions = (APP_STATE.connectedDriveAccounts || []).map(a => 
+    `<option value="${a.id}">${escapeHtml(a.email || 'Drive Account')}</option>`
+  ).join('');
+
   div.innerHTML = `
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between pb-1 border-b border-[#262638]/60">
       <span class="text-xs font-semibold text-white">Edition #${idx + 1}</span>
-      ${idx > 0 ? `<button type="button" onclick="removeEditionRow(${idx})" class="text-xs text-red-400 hover:text-red-300">Remove</button>` : ''}
+      ${idx > 0 ? `<button type="button" onclick="removeEditionRow(${idx})" class="text-[11px] text-red-400 hover:text-red-300">Remove</button>` : ''}
     </div>
-    <select id="edLangSelect-${idx}" class="w-full px-2.5 py-1.5 text-xs" onchange="APP_STATE.publishEditions[${idx}].language = this.value">
-      <option value="English">English</option>
-      <option value="Spanish">Spanish</option>
-      <option value="French">French</option>
-      <option value="Arabic">Arabic</option>
-      <option value="Japanese">Japanese</option>
-      <option value="Korean">Korean</option>
-      <option value="German">German</option>
-    </select>
-    <div onclick="document.getElementById('edFileInput-${idx}').click()" class="surface-card p-2.5 flex items-center gap-2 cursor-pointer border-dashed">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-app-primary"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      <span id="edFileLabel-${idx}" class="text-xs text-app-muted truncate flex-1">Select Manuscript PDF</span>
+
+    <!-- Language Selector -->
+    <div>
+      <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Language</label>
+      <select id="edLangSelect-${idx}" class="w-full px-2.5 py-1.5 text-xs bg-[#171722] border border-[#262638] rounded-lg" onchange="APP_STATE.publishEditions[${idx}].language = this.value">
+        <option value="English">English</option>
+        <option value="Spanish">Spanish</option>
+        <option value="French">French</option>
+        <option value="Arabic">Arabic</option>
+        <option value="Japanese">Japanese</option>
+        <option value="Korean">Korean</option>
+        <option value="German">German</option>
+        <option value="Portuguese">Portuguese</option>
+        <option value="Chinese">Chinese</option>
+      </select>
     </div>
-    <input type="file" id="edFileInput-${idx}" accept=".pdf" class="hidden" onchange="handleEditionPdfSelected(this, ${idx})">
+
+    <!-- Storage Provider Selector -->
+    <div>
+      <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Storage Provider</label>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="edProvBtn-drive-${idx}" onclick="setEditionStorageProvider(${idx}, 'drive')" class="px-2.5 py-1.5 text-xs rounded-lg border flex items-center justify-center gap-1.5 font-medium transition-all ${defaultProvider === 'drive' ? 'bg-[#9270FF]/20 border-[#9270FF] text-[#B9A4FF]' : 'bg-[#14141D] border-[#262638] text-[#9693A4]'}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          Google Drive
+        </button>
+        <button type="button" id="edProvBtn-storage-${idx}" onclick="setEditionStorageProvider(${idx}, 'storage')" class="px-2.5 py-1.5 text-xs rounded-lg border flex items-center justify-center gap-1.5 font-medium transition-all ${defaultProvider === 'storage' ? 'bg-[#9270FF]/20 border-[#9270FF] text-[#B9A4FF]' : 'bg-[#14141D] border-[#262638] text-[#9693A4]'}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+          Device Storage
+        </button>
+      </div>
+    </div>
+
+    <!-- Google Drive Options Panel -->
+    <div id="edDrivePanel-${idx}" class="${defaultProvider === 'drive' ? '' : 'hidden'} space-y-2 pt-1">
+      ${hasDrive ? `
+        <div>
+          <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Connected Drive Account</label>
+          <select id="edDriveAccountSelect-${idx}" class="w-full px-2.5 py-1.5 text-xs bg-[#171722] border border-[#262638] rounded-lg" onchange="APP_STATE.publishEditions[${idx}].driveAccountId = this.value">
+            ${driveOptions}
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="openDrivePickerForEdition(${idx})" class="btn-secondary text-xs flex-1 py-1.5 flex items-center justify-center gap-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Select Drive PDF
+          </button>
+          <button type="button" onclick="document.getElementById('edDriveUploadInput-${idx}').click()" class="btn-secondary text-xs flex-1 py-1.5 flex items-center justify-center gap-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            Upload New to Drive
+          </button>
+        </div>
+        <input type="file" id="edDriveUploadInput-${idx}" accept=".pdf" class="hidden" onchange="handleEditionDriveUploadSelected(this, ${idx})">
+      ` : `
+        <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+          <p class="text-[11px] text-amber-300 mb-1.5">No Google Drive account connected.</p>
+          <button type="button" onclick="switchPage('drive')" class="btn-primary text-xs px-3 py-1">Connect Drive</button>
+        </div>
+      `}
+    </div>
+
+    <!-- Device Storage Panel -->
+    <div id="edStoragePanel-${idx}" class="${defaultProvider === 'storage' ? '' : 'hidden'} space-y-1 pt-1">
+      <div onclick="document.getElementById('edFileInput-${idx}').click()" class="surface-card p-2.5 flex items-center gap-2 cursor-pointer border-dashed border-[#262638] hover:border-app-primary transition-colors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-app-primary"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span id="edFileLabel-${idx}" class="text-xs text-app-muted truncate flex-1">Choose PDF from Device</span>
+      </div>
+      <input type="file" id="edFileInput-${idx}" accept=".pdf" class="hidden" onchange="handleEditionPdfSelected(this, ${idx})">
+    </div>
+
+    <!-- Selected Status Badge -->
+    <div id="edStatusBadge-${idx}" class="text-[11px] font-mono text-[#B9A4FF] bg-[#1B172A] border border-[#2E2448] px-2.5 py-1 rounded-md hidden truncate">
+      No manuscript selected
+    </div>
   `;
   container.appendChild(div);
+}
+
+function setEditionStorageProvider(idx, provider) {
+  if (!APP_STATE.publishEditions[idx]) return;
+  APP_STATE.publishEditions[idx].storageProvider = provider;
+  const driveBtn = document.getElementById(`edProvBtn-drive-${idx}`);
+  const storageBtn = document.getElementById(`edProvBtn-storage-${idx}`);
+  const drivePanel = document.getElementById(`edDrivePanel-${idx}`);
+  const storagePanel = document.getElementById(`edStoragePanel-${idx}`);
+
+  if (provider === 'drive') {
+    if (driveBtn) {
+      driveBtn.classList.remove('bg-[#14141D]', 'border-[#262638]', 'text-[#9693A4]');
+      driveBtn.classList.add('bg-[#9270FF]/20', 'border-[#9270FF]', 'text-[#B9A4FF]');
+    }
+    if (storageBtn) {
+      storageBtn.classList.remove('bg-[#9270FF]/20', 'border-[#9270FF]', 'text-[#B9A4FF]');
+      storageBtn.classList.add('bg-[#14141D]', 'border-[#262638]', 'text-[#9693A4]');
+    }
+    drivePanel?.classList.remove('hidden');
+    storagePanel?.classList.add('hidden');
+  } else {
+    if (storageBtn) {
+      storageBtn.classList.remove('bg-[#14141D]', 'border-[#262638]', 'text-[#9693A4]');
+      storageBtn.classList.add('bg-[#9270FF]/20', 'border-[#9270FF]', 'text-[#B9A4FF]');
+    }
+    if (driveBtn) {
+      driveBtn.classList.remove('bg-[#9270FF]/20', 'border-[#9270FF]', 'text-[#B9A4FF]');
+      driveBtn.classList.add('bg-[#14141D]', 'border-[#262638]', 'text-[#9693A4]');
+    }
+    storagePanel?.classList.remove('hidden');
+    drivePanel?.classList.add('hidden');
+  }
+}
+
+function openDrivePickerForEdition(idx) {
+  APP_STATE._targetEditionIdx = idx;
+  const acctId = APP_STATE.publishEditions[idx]?.driveAccountId || (APP_STATE.connectedDriveAccounts[0]?.id);
+  if (!acctId) {
+    showToast('Please connect a Google Drive account first');
+    return;
+  }
+  browseDriveAccountFiles(acctId);
+}
+
+function handleEditionDriveUploadSelected(input, idx) {
+  const file = input.files[0];
+  if (!file) return;
+  APP_STATE.publishEditions[idx].file = file;
+  APP_STATE.publishEditions[idx].storageProvider = 'drive';
+  APP_STATE.publishEditions[idx].driveFile = null;
+  const badge = document.getElementById(`edStatusBadge-${idx}`);
+  if (badge) {
+    badge.textContent = `[Upload to Drive: NOVELIX folder] ${file.name} (${(file.size / (1024*1024)).toFixed(1)} MB)`;
+    badge.classList.remove('hidden');
+  }
+  updateDraftStorageEstimate();
 }
 
 function handleEditionPdfSelected(input, idx) {
   const file = input.files[0];
   if (!file) return;
   APP_STATE.publishEditions[idx].file = file;
-  document.getElementById(`edFileLabel-${idx}`).textContent = `${file.name} (${(file.size / (1024*1024)).toFixed(1)} MB)`;
+  APP_STATE.publishEditions[idx].storageProvider = 'storage';
+  APP_STATE.publishEditions[idx].driveFile = null;
+  const label = document.getElementById(`edFileLabel-${idx}`);
+  if (label) label.textContent = `${file.name} (${(file.size / (1024*1024)).toFixed(1)} MB)`;
+  const badge = document.getElementById(`edStatusBadge-${idx}`);
+  if (badge) {
+    badge.textContent = `[Device Storage] ${file.name} (${(file.size / (1024*1024)).toFixed(1)} MB)`;
+    badge.classList.remove('hidden');
+  }
   updateDraftStorageEstimate();
 }
 
@@ -3624,6 +3884,19 @@ async function uploadMediaFile(file, path) {
   }
 }
 
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = reader.result;
+      const base64 = res.substring(res.indexOf(',') + 1);
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 async function handlePublishSubmit(event, forceStatus) {
   if (event) event.preventDefault();
   if (!APP_STATE.user) { openAuthModal(); return; }
@@ -3635,8 +3908,9 @@ async function handlePublishSubmit(event, forceStatus) {
   const coverFile = document.getElementById('coverFileInput').files[0];
 
   if (!title || !desc) { showToast('Please enter title and synopsis'); return; }
+  if (APP_STATE.publishEditions.length === 0) { showToast('Please add at least one language edition'); return; }
 
-  setButtonLoading('publishSubmitBtn', true, 'Uploading...');
+  setButtonLoading('publishSubmitBtn', true, 'Uploading cover...');
 
   try {
     const bookId = db.collection('books').doc().id;
@@ -3650,18 +3924,76 @@ async function handlePublishSubmit(event, forceStatus) {
     const languages = [];
     for (let i = 0; i < APP_STATE.publishEditions.length; i++) {
       const ed = APP_STATE.publishEditions[i];
-      let fileUrl = '';
-      if (ed.file) {
-        fileUrl = await uploadMediaFile(ed.file, `books/${bookId}/pdfs/${ed.language}_${Date.now()}.pdf`);
+      setButtonLoading('publishSubmitBtn', true, `Processing edition #${i+1} (${ed.language})...`);
+
+      // 1. Existing Drive File
+      if (ed.driveFile) {
+        languages.push({
+          language: ed.language,
+          storageProvider: 'drive',
+          driveFileId: ed.driveFile.fileId,
+          driveAccountId: ed.driveFile.accountId || ed.driveAccountId || '',
+          fileName: ed.driveFile.fileName,
+          fileSize: ed.driveFile.size || 0,
+          fileUrl: ed.driveFile.downloadUrl || '',
+          uploadedAt: new Date().toISOString()
+        });
       }
-      languages.push({
-        language: ed.language,
-        fileUrl: fileUrl,
-        fileName: ed.file ? ed.file.name : '',
-        fileSize: ed.file ? ed.file.size : 0,
-        uploadedAt: new Date().toISOString()
-      });
+      // 2. Local file uploaded directly to Google Drive NOVELIX folder
+      else if (ed.storageProvider === 'drive' && ed.file) {
+        setButtonLoading('publishSubmitBtn', true, `Uploading to Google Drive (${ed.language})...`);
+        const base64 = await readFileAsBase64(ed.file);
+        const acctId = ed.driveAccountId || (APP_STATE.connectedDriveAccounts[0]?.id);
+        if (!acctId) throw new Error('No Google Drive account selected for upload.');
+
+        if (!functions || typeof functions.httpsCallable !== 'function') {
+          throw new Error('Cloud Functions unavailable for Drive upload.');
+        }
+
+        const uploadFn = functions.httpsCallable('uploadPdfToDrive');
+        const uploadRes = await uploadFn({
+          accountId: acctId,
+          fileName: ed.file.name,
+          fileBase64: base64
+        });
+
+        if (!uploadRes.data || !uploadRes.data.success) {
+          throw new Error('Failed to upload manuscript to Google Drive.');
+        }
+
+        languages.push({
+          language: ed.language,
+          storageProvider: 'drive',
+          driveFileId: uploadRes.data.fileId,
+          driveAccountId: acctId,
+          fileName: uploadRes.data.fileName || ed.file.name,
+          fileSize: uploadRes.data.fileSize || ed.file.size,
+          fileUrl: '',
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      // 3. Local file uploaded to Firebase Storage
+      else if (ed.file) {
+        setButtonLoading('publishSubmitBtn', true, `Uploading to Storage (${ed.language})...`);
+        const fileUrl = await uploadMediaFile(ed.file, `books/${bookId}/pdfs/${ed.language}_${Date.now()}.pdf`);
+        languages.push({
+          language: ed.language,
+          storageProvider: 'storage',
+          fileUrl: fileUrl,
+          fileName: ed.file.name,
+          fileSize: ed.file.size,
+          uploadedAt: new Date().toISOString()
+        });
+      }
     }
+
+    if (languages.length === 0) {
+      throw new Error('Please select or upload a PDF manuscript for your publication.');
+    }
+
+    setButtonLoading('publishSubmitBtn', true, 'Publishing to NOVELIX catalog...');
+
+    const primaryStorage = languages.some(l => l.storageProvider === 'drive') ? 'drive' : 'storage';
 
     await db.collection('books').doc(bookId).set({
       id: bookId,
@@ -3674,10 +4006,17 @@ async function handlePublishSubmit(event, forceStatus) {
       status: status,
       visibility: visibility,
       publishStatus: status === 'draft' ? 'draft' : 'published',
+      storageProvider: primaryStorage,
       languages: languages,
       authorId: APP_STATE.user.uid,
       authorName: APP_STATE.profile?.displayName || APP_STATE.user.email.split('@')[0],
       authorPhoto: APP_STATE.profile?.photoURL || '',
+      authors: [{
+        uid: APP_STATE.user.uid,
+        name: APP_STATE.profile?.displayName || APP_STATE.user.email.split('@')[0],
+        photoURL: APP_STATE.profile?.photoURL || '',
+        role: 'Primary Author'
+      }],
       viewCount: 0,
       likeCount: 0,
       bookmarkCount: 0,
@@ -3686,10 +4025,11 @@ async function handlePublishSubmit(event, forceStatus) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    showToast('Publication published live to NOVELIX');
+    showToast('Publication published live to NOVELIX!');
     resetPublishForm();
     switchPage('home');
   } catch(err) {
+    console.error('[NOVELIX Publish] Error:', err);
     showToast(`Publication failed: ${err.message}`);
   } finally {
     setButtonLoading('publishSubmitBtn', false, 'Publish Work');
@@ -4156,82 +4496,366 @@ async function toggleDetailBookmark() {
   }
 }
 
+// ────────────────────────────────────────────────────────
+// NOVELIX 5.0 PROFESSIONAL MOBILE PDF READER CONTROLLER
+// ────────────────────────────────────────────────────────
 async function launchActiveReader() {
   const book = APP_STATE.selectedBook;
   if (!book) return;
+
   closeBookDetailModal();
-  document.getElementById('readerModal').classList.add('open');
+  const readerModal = document.getElementById('readerModal');
+  readerModal.classList.add('open');
   document.getElementById('readerTitle').textContent = book.title;
+  document.getElementById('readerSubtitle').textContent = book.authorName ? `By ${book.authorName}` : 'NOVELIX Reader';
+
+  // Apply saved theme
+  const savedTheme = localStorage.getItem('novelix_reader_theme') || 'dark';
+  applyReaderTheme(savedTheme);
 
   const edition = APP_STATE.selectedEdition || (book.languages && book.languages[0]);
-  const pdfUrl = edition ? edition.fileUrl : null;
-
-  if (pdfUrl && window.pdfjsLib) {
-    document.getElementById('pdfRenderCanvas').classList.remove('hidden');
-    document.getElementById('manhwaScrollContainer').classList.add('hidden');
-    loadPdfReader(pdfUrl);
-  } else {
-    // Manhwa or text reader fallback
-    document.getElementById('pdfRenderCanvas').classList.add('hidden');
-    document.getElementById('manhwaScrollContainer').classList.remove('hidden');
-    renderManhwaReaderFallback(book);
+  if (!edition) {
+    showToast('No published edition found for this title');
+    closeReaderModal();
+    return;
   }
 
-  // Track reading progress in Firestore
+  // Load user bookmarks & reading progress
+  let startPage = 1;
+  APP_STATE._currentBookmarks = [];
+  updateReaderBookmarkVisual(false);
+
   if (APP_STATE.user) {
-    db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').doc(book.id).set({
-      id: book.id,
-      title: book.title,
-      coverUrl: book.coverUrl || '',
-      contentType: book.contentType,
-      page: 1,
-      lastReadAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    try {
+      const progDoc = await db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').doc(book.id).get();
+      if (progDoc.exists) {
+        const prog = progDoc.data();
+        if (prog.page && prog.page > 1) {
+          startPage = prog.page;
+        }
+        if (Array.isArray(prog.bookmarks)) {
+          APP_STATE._currentBookmarks = prog.bookmarks;
+        }
+      }
+    } catch(err) {
+      console.warn('[NOVELIX Reader] Reading progress notice:', err);
+    }
+  }
+
+  APP_STATE.pdfPageNumber = startPage;
+  await loadPdfDocumentForReader(book, edition, startPage);
+}
+
+function closeReaderModal() {
+  document.getElementById('readerModal').classList.remove('open');
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
   }
 }
 
-function closeReaderModal() { document.getElementById('readerModal').classList.remove('open'); }
+async function loadPdfDocumentForReader(book, edition, targetPage) {
+  const loadingOverlay = document.getElementById('readerLoadingOverlay');
+  const errorOverlay = document.getElementById('readerErrorOverlay');
+  const progressBar = document.getElementById('readerLoadingProgress');
+  const percentText = document.getElementById('readerLoadingPercent');
+  const statusText = document.getElementById('readerLoadingStatus');
 
-async function loadPdfReader(url) {
+  loadingOverlay.classList.remove('hidden');
+  errorOverlay.classList.add('hidden');
+  progressBar.style.width = '20%';
+  percentText.textContent = '20%';
+  statusText.textContent = 'Connecting to secure manuscript stream...';
+
+  const cacheKey = `book_${book.id}_${edition.language}`;
+  if (!APP_STATE._pdfCache) APP_STATE._pdfCache = {};
+
   try {
+    let pdfDataParam = null;
+
+    // Check in-memory cache first
+    if (APP_STATE._pdfCache[cacheKey]) {
+      statusText.textContent = 'Retrieving cached manuscript...';
+      progressBar.style.width = '70%';
+      percentText.textContent = '70%';
+      pdfDataParam = { data: APP_STATE._pdfCache[cacheKey] };
+    } else {
+      const storageProvider = edition.storageProvider || book.storageProvider || (edition.driveFileId ? 'drive' : 'storage');
+
+      if (storageProvider === 'drive' && (edition.driveFileId || edition.fileId)) {
+        // Secure backend retrieval via Cloud Function
+        statusText.textContent = 'Retrieving private Google Drive manuscript via secure proxy...';
+        progressBar.style.width = '45%';
+        percentText.textContent = '45%';
+
+        if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+          const getPdfFn = functions.httpsCallable('getReaderPdfData');
+          const res = await getPdfFn({ bookId: book.id, language: edition.language });
+          if (res && res.data && res.data.base64) {
+            progressBar.style.width = '75%';
+            percentText.textContent = '75%';
+            statusText.textContent = 'Decoding manuscript buffer...';
+
+            // Convert base64 to Uint8Array
+            const binaryString = atob(res.data.base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            APP_STATE._pdfCache[cacheKey] = bytes;
+            pdfDataParam = { data: bytes };
+          } else if (res && res.data && res.data.fileUrl) {
+            pdfDataParam = { url: res.data.fileUrl };
+          }
+        }
+
+        if (!pdfDataParam) {
+          // Fallback to streaming endpoint if available
+          const token = APP_STATE.user ? await APP_STATE.user.getIdToken() : '';
+          const streamUrl = `https://us-central1-novelxa-48f15.cloudfunctions.net/streamDrivePdf?bookId=${encodeURIComponent(book.id)}&language=${encodeURIComponent(edition.language)}${token ? '&token=' + encodeURIComponent(token) : ''}`;
+          pdfDataParam = { url: streamUrl };
+        }
+      } else if (edition.fileUrl) {
+        // Direct storage download URL
+        statusText.textContent = 'Fetching manuscript from storage...';
+        progressBar.style.width = '55%';
+        percentText.textContent = '55%';
+        pdfDataParam = { url: edition.fileUrl };
+      } else {
+        throw new Error('No valid manuscript stream found for this edition.');
+      }
+    }
+
+    statusText.textContent = 'Rendering typography and pages...';
+    progressBar.style.width = '88%';
+    percentText.textContent = '88%';
+
+    if (!window.pdfjsLib) {
+      throw new Error('PDF.js reader engine is not initialized.');
+    }
+
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const loadingTask = pdfjsLib.getDocument(url);
+    const loadingTask = pdfjsLib.getDocument(pdfDataParam);
+
+    loadingTask.onProgress = function(progressData) {
+      if (progressData.total > 0) {
+        const pct = Math.round((progressData.loaded / progressData.total) * 100);
+        progressBar.style.width = `${Math.min(95, pct)}%`;
+        percentText.textContent = `${Math.min(95, pct)}%`;
+      }
+    };
+
     APP_STATE.pdfDocument = await loadingTask.promise;
-    APP_STATE.pdfPageNumber = 1;
-    renderPdfPage(APP_STATE.pdfPageNumber);
-  } catch(e) {
-    showToast(`PDF load error: ${e.message}`);
+    loadingOverlay.classList.add('hidden');
+
+    // Update scrubber bounds
+    const totalPages = APP_STATE.pdfDocument.numPages;
+    const slider = document.getElementById('readerPageSlider');
+    if (slider) {
+      slider.min = '1';
+      slider.max = String(totalPages);
+      slider.value = String(targetPage);
+    }
+    document.getElementById('readerTotalPagesBadge').textContent = `/ ${totalPages}`;
+
+    // Render target page
+    await renderPdfPage(targetPage);
+
+    if (targetPage > 1) {
+      showToast(`Resumed at page ${targetPage}`);
+    }
+  } catch(err) {
+    console.error('[NOVELIX Reader] Load error:', err);
+    loadingOverlay.classList.add('hidden');
+    errorOverlay.classList.remove('hidden');
+    document.getElementById('readerErrorMessage').textContent = err.message || 'Unable to open PDF manuscript.';
+  }
+}
+
+function retryLoadReaderPdf() {
+  if (APP_STATE.selectedBook) {
+    const edition = APP_STATE.selectedEdition || (APP_STATE.selectedBook.languages && APP_STATE.selectedBook.languages[0]);
+    loadPdfDocumentForReader(APP_STATE.selectedBook, edition, APP_STATE.pdfPageNumber || 1);
   }
 }
 
 async function renderPdfPage(num) {
   if (!APP_STATE.pdfDocument || APP_STATE.pdfIsRendering) return;
   APP_STATE.pdfIsRendering = true;
-  const page = await APP_STATE.pdfDocument.getPage(num);
-  const viewport = page.getViewport({ scale: APP_STATE.pdfZoomScale });
 
-  const canvas = document.getElementById('pdfRenderCanvas');
-  const ctx = canvas.getContext('2d');
-  canvas.height = viewport.height;
-  canvas.width = viewport.width;
+  try {
+    const page = await APP_STATE.pdfDocument.getPage(num);
+    const viewportContainer = document.getElementById('readerViewport');
+    const containerWidth = (viewportContainer.clientWidth || window.innerWidth) - 24;
 
-  await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-  APP_STATE.pdfIsRendering = false;
-  document.getElementById('readerPageIndicator').textContent = `${num} / ${APP_STATE.pdfDocument.numPages}`;
+    // Responsive scaling based on mode
+    let targetScale = APP_STATE.pdfZoomScale || 1.35;
+    if (APP_STATE.readerFitMode === 'width') {
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      targetScale = Math.max(0.7, containerWidth / unscaledViewport.width);
+    } else if (APP_STATE.readerFitMode === 'page') {
+      const containerHeight = (viewportContainer.clientHeight || window.innerHeight) - 40;
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      const scaleW = containerWidth / unscaledViewport.width;
+      const scaleH = containerHeight / unscaledViewport.height;
+      targetScale = Math.max(0.6, Math.min(scaleW, scaleH));
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale: targetScale * dpr });
+
+    const canvas = document.getElementById('pdfRenderCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
+    canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
+
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+    // Update UI controls
+    APP_STATE.pdfPageNumber = num;
+    document.getElementById('readerCurrentPageBadge').textContent = `p. ${num}`;
+    const slider = document.getElementById('readerPageSlider');
+    if (slider) slider.value = String(num);
+
+    // Update Bookmark icon for current page
+    const isBookmarked = (APP_STATE._currentBookmarks || []).includes(num);
+    updateReaderBookmarkVisual(isBookmarked);
+
+    // Save reading progress to Firestore (debounced)
+    saveReadingProgressDebounced(num, APP_STATE.pdfDocument.numPages);
+  } catch (err) {
+    console.warn('[NOVELIX Reader] Render notice:', err);
+  } finally {
+    APP_STATE.pdfIsRendering = false;
+  }
+}
+
+function handleReaderSliderChange(val) {
+  const pageNum = parseInt(val, 10);
+  if (!isNaN(pageNum) && APP_STATE.pdfDocument && pageNum >= 1 && pageNum <= APP_STATE.pdfDocument.numPages) {
+    renderPdfPage(pageNum);
+  }
 }
 
 function changeReaderPage(delta) {
   if (!APP_STATE.pdfDocument) return;
   const newPage = APP_STATE.pdfPageNumber + delta;
   if (newPage >= 1 && newPage <= APP_STATE.pdfDocument.numPages) {
-    APP_STATE.pdfPageNumber = newPage;
     renderPdfPage(newPage);
   }
 }
 
 function zoomReader(delta) {
-  APP_STATE.pdfZoomScale = Math.max(0.8, Math.min(2.5, APP_STATE.pdfZoomScale + delta));
+  APP_STATE.readerFitMode = 'custom';
+  APP_STATE.pdfZoomScale = Math.max(0.6, Math.min(3.0, (APP_STATE.pdfZoomScale || 1.35) + delta));
   if (APP_STATE.pdfDocument) renderPdfPage(APP_STATE.pdfPageNumber);
+}
+
+function setFitMode(mode) {
+  APP_STATE.readerFitMode = mode;
+  if (APP_STATE.pdfDocument) renderPdfPage(APP_STATE.pdfPageNumber);
+}
+
+// Themes: dark, midnight, sepia, light
+function cycleReaderTheme() {
+  const themes = ['dark', 'midnight', 'sepia', 'light'];
+  const cur = localStorage.getItem('novelix_reader_theme') || 'dark';
+  const next = themes[(themes.indexOf(cur) + 1) % themes.length];
+  applyReaderTheme(next);
+}
+
+function applyReaderTheme(theme) {
+  localStorage.setItem('novelix_reader_theme', theme);
+  const readerModal = document.getElementById('readerModal');
+  const viewport = document.getElementById('readerViewport');
+  if (!readerModal || !viewport) return;
+
+  readerModal.setAttribute('data-theme', theme);
+  if (theme === 'dark') {
+    viewport.style.background = '#07070A';
+  } else if (theme === 'midnight') {
+    viewport.style.background = '#0E0919';
+  } else if (theme === 'sepia') {
+    viewport.style.background = '#EFE6CE';
+  } else if (theme === 'light') {
+    viewport.style.background = '#F6F8FB';
+  }
+}
+
+function toggleReaderFullscreen() {
+  const elem = document.getElementById('readerModal');
+  if (!document.fullscreenElement) {
+    elem.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+async function toggleReaderBookmark() {
+  const book = APP_STATE.selectedBook;
+  if (!book || !APP_STATE.pdfDocument || !APP_STATE.user) {
+    showToast('Sign in to save bookmarks');
+    return;
+  }
+
+  const curPage = APP_STATE.pdfPageNumber;
+  if (!APP_STATE._currentBookmarks) APP_STATE._currentBookmarks = [];
+
+  const idx = APP_STATE._currentBookmarks.indexOf(curPage);
+  if (idx > -1) {
+    APP_STATE._currentBookmarks.splice(idx, 1);
+    updateReaderBookmarkVisual(false);
+    showToast(`Removed bookmark for page ${curPage}`);
+  } else {
+    APP_STATE._currentBookmarks.push(curPage);
+    APP_STATE._currentBookmarks.sort((a,b) => a - b);
+    updateReaderBookmarkVisual(true);
+    showToast(`Page ${curPage} bookmarked`);
+  }
+
+  try {
+    await db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').doc(book.id).set({
+      bookmarks: APP_STATE._currentBookmarks
+    }, { merge: true });
+  } catch(e) {}
+}
+
+function updateReaderBookmarkVisual(isBookmarked) {
+  const btn = document.getElementById('readerBookmarkBtn');
+  const icon = document.getElementById('readerBookmarkIcon');
+  if (!btn || !icon) return;
+  if (isBookmarked) {
+    btn.style.color = '#9270FF';
+    btn.style.borderColor = '#9270FF';
+    icon.setAttribute('fill', '#9270FF');
+  } else {
+    btn.style.color = '#FFFFFF';
+    btn.style.borderColor = '#2B2B3E';
+    icon.setAttribute('fill', 'none');
+  }
+}
+
+let _progressSaveTimer = null;
+function saveReadingProgressDebounced(pageNum, totalPages) {
+  if (!APP_STATE.user || !APP_STATE.selectedBook) return;
+  if (_progressSaveTimer) clearTimeout(_progressSaveTimer);
+
+  _progressSaveTimer = setTimeout(() => {
+    const book = APP_STATE.selectedBook;
+    const pct = totalPages > 0 ? Math.round((pageNum / totalPages) * 100) : 0;
+    db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').doc(book.id).set({
+      id: book.id,
+      title: book.title,
+      coverUrl: book.coverUrl || '',
+      contentType: book.contentType || 'book',
+      page: pageNum,
+      totalPages: totalPages,
+      percent: pct,
+      lastReadAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(() => {});
+  }, 1000);
 }
 
 function renderManhwaReaderFallback(book) {

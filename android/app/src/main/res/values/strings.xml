@@ -4,4 +4,5 @@
     <string name="title_activity_main">NOVELIX</string>
     <string name="package_name">com.novelix.app</string>
     <string name="custom_url_scheme">com.novelix.app</string>
+    <string name="server_client_id">239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com</string>
 </resources>
