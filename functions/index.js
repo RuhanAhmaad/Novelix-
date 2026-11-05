@@ -99,6 +99,48 @@ function decryptToken(encrypted) {
  * 1. SET ADMIN CLAIM (Callable Function)
  * Securely assign admin custom claim. Only verified admins or initial bootstrap secret can call this.
  */
+/**
+ * 1. SECURE ADMIN STATUS VERIFICATION (Callable Function)
+ * Checks whether an administrator has been configured in the system
+ * and verifies caller's server-side Firebase custom claims.
+ */
+exports.verifyAdminStatus = onCall(async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  const adminUsersSnap = await db.collection('admin_users').limit(1).get();
+  const isConfigured = !adminUsersSnap.empty;
+
+  if (!isConfigured) {
+    return {
+      configured: false,
+      isAdmin: false,
+      message: 'Admin access has not been configured. Contact the system owner.'
+    };
+  }
+
+  if (!callerUid) {
+    return {
+      configured: true,
+      isAdmin: false,
+      message: 'Authentication required.'
+    };
+  }
+
+  const callerUser = await auth.getUser(callerUid);
+  const isAdmin = Boolean(callerUser.customClaims && callerUser.customClaims.admin === true);
+
+  return {
+    configured: true,
+    isAdmin: isAdmin,
+    email: callerUser.email,
+    displayName: callerUser.displayName || 'Administrator'
+  };
+});
+
+/**
+ * 1B. SET / BOOTSTRAP ADMIN CLAIM (Callable Function)
+ * Strict, cryptographically sound administrator bootstrap and role assignment.
+ * NEVER allows empty password or hardcoded fallback secrets.
+ */
 exports.setAdminRole = onCall(async (request) => {
   const callerUid = request.auth ? request.auth.uid : null;
   const targetEmail = request.data.email;
@@ -107,7 +149,7 @@ exports.setAdminRole = onCall(async (request) => {
 
   let isAuthorized = false;
 
-  // Check if caller already has admin claim
+  // 1. Check if caller already has verified admin custom claim
   if (callerUid) {
     const callerUser = await auth.getUser(callerUid);
     if (callerUser.customClaims && callerUser.customClaims.admin === true) {
@@ -115,9 +157,23 @@ exports.setAdminRole = onCall(async (request) => {
     }
   }
 
-  // Initial bootstrap authorization check
-  const envSecret = process.env.ADMIN_BOOTSTRAP_SECRET || 'novelix-admin-secure-init-2026';
-  if (bootstrapSecret && bootstrapSecret === envSecret) {
+  // 2. Initial bootstrap authorization check (Only when no admin exists yet)
+  const envSecret = process.env.ADMIN_BOOTSTRAP_SECRET;
+  if (!isAuthorized) {
+    if (!envSecret || typeof envSecret !== 'string' || envSecret.trim().length < 16) {
+      throw new HttpsError('failed-precondition', 'Admin access has not been configured. Contact the system owner.');
+    }
+
+    if (!bootstrapSecret || bootstrapSecret !== envSecret) {
+      throw new HttpsError('permission-denied', 'Invalid bootstrap credentials. Admin access denied.');
+    }
+
+    // Ensure bootstrap is only allowed once when admin_users is empty
+    const existingAdmins = await db.collection('admin_users').limit(1).get();
+    if (!existingAdmins.empty) {
+      throw new HttpsError('failed-precondition', 'An administrator account is already configured. Bootstrap is permanently disabled.');
+    }
+
     isAuthorized = true;
   }
 
@@ -130,11 +186,13 @@ exports.setAdminRole = onCall(async (request) => {
     user = await auth.getUser(targetUid);
   } else if (targetEmail) {
     user = await auth.getUserByEmail(targetEmail);
+  } else if (callerUid) {
+    user = await auth.getUser(callerUid);
   } else {
-    throw new HttpsError('invalid-argument', 'Must provide target uid or email.');
+    throw new HttpsError('invalid-argument', 'Must provide target uid, email, or be authenticated.');
   }
 
-  // Set custom claims
+  // Set custom claims securely via Admin SDK
   await auth.setCustomUserClaims(user.uid, { admin: true, role: 'admin' });
 
   // Update Firestore admin_users collection
@@ -143,7 +201,7 @@ exports.setAdminRole = onCall(async (request) => {
     displayName: user.displayName || 'Administrator',
     role: 'admin',
     assignedAt: admin.firestore.FieldValue.serverTimestamp(),
-    assignedBy: callerUid || 'bootstrap',
+    assignedBy: callerUid || 'initial-bootstrap',
   }, { merge: true });
 
   // Update user document
@@ -154,14 +212,44 @@ exports.setAdminRole = onCall(async (request) => {
 
   // Audit log
   await db.collection('admin_logs').add({
-    adminId: callerUid || 'bootstrap',
+    adminId: callerUid || user.uid,
     action: 'SET_ADMIN_ROLE',
     targetUid: user.uid,
     targetEmail: user.email,
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  return { success: true, message: `Admin privileges granted to ${user.email} (${user.uid})` };
+  return { success: true, message: `Administrator privileges successfully granted to ${user.email} (${user.uid})` };
+});
+
+/**
+ * 1C. ADMIN GET DASHBOARD DATA (Callable Function)
+ * Returns administrative metrics, only accessible to verified custom claim admins.
+ */
+exports.adminGetDashboardData = onCall(async (request) => {
+  const callerUid = request.auth ? request.auth.uid : null;
+  if (!callerUid || !request.auth.token.admin) {
+    throw new HttpsError('permission-denied', 'Only authorized administrators can access dashboard metrics.');
+  }
+
+  const [usersSnap, booksSnap, verifsSnap] = await Promise.all([
+    db.collection('users').limit(100).get(),
+    db.collection('books').limit(100).get(),
+    db.collection('creator_verifications').where('status', '==', 'pending').get().catch(() => ({ size: 0, docs: [] }))
+  ]);
+
+  let totalStorageBytes = 0;
+  usersSnap.forEach(d => {
+    totalStorageBytes += (d.data().storageUsedBytes || 0);
+  });
+
+  return {
+    totalUsers: usersSnap.size,
+    totalBooks: booksSnap.size,
+    pendingVerifications: verifsSnap.size || 0,
+    totalStorageUsedMB: (totalStorageBytes / (1024 * 1024)).toFixed(1),
+    timestamp: new Date().toISOString()
+  };
 });
 
 /**

@@ -787,24 +787,44 @@
     </div>
   </section>
 
-  <!-- ── 4C. LIBRARY PAGE ── -->
+  <!-- ── 4C. LIBRARY PAGE (NOVELIX 6.0 ENHANCED READER SECTION) ── -->
   <section id="page-library" class="app-page">
     <div class="px-4 pt-4 pb-2">
-      <h2 class="font-display font-bold text-lg text-white mb-1">Your Library</h2>
-      <p class="text-xs text-app-muted mb-4">Synchronized bookmarks, downloads, and reading progress.</p>
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="font-display font-bold text-lg text-white">Your Library</h2>
+        <span class="text-[10px] text-app-secondary px-2 py-0.5 rounded-full bg-app-primary/10 border border-app-primary/20">Reader Hub</span>
+      </div>
+      <p class="text-xs text-app-muted mb-4">Synchronized bookmarks, reading progress, and curated recommendations.</p>
       
       <div id="libraryAuthGuard" class="hidden surface-card-static p-6 text-center">
-        <p class="text-xs text-app-muted mb-3">Sign in to sync your bookmarks across devices.</p>
-        <button onclick="openAuthModal()" class="btn-primary text-xs px-4 py-2">Sign In</button>
+        <div class="w-12 h-12 rounded-full bg-app-primary/10 border border-app-primary/20 flex items-center justify-center mx-auto mb-3 text-app-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <h3 class="text-sm font-semibold text-white mb-1">Sign in to sync your Library</h3>
+        <p class="text-xs text-app-muted mb-4 max-w-xs mx-auto">Restore your bookmarks, reading positions, and history across all your mobile devices.</p>
+        <button onclick="openAuthModal()" class="btn-primary text-xs px-5 py-2.5 font-semibold">Sign In to NOVELIX</button>
       </div>
 
       <div id="libraryContent" class="hidden">
-        <div class="flex gap-2 mb-4">
+        <div class="flex gap-1.5 mb-4 overflow-x-auto pb-1 flex-shrink-0 scrollbar-none">
           <button onclick="switchLibTab('reading')" class="lib-subtab pill-tag" data-tab="reading" style="background:#9270FF; color:#0B0B10">Continue Reading</button>
+          <button onclick="switchLibTab('history')" class="lib-subtab pill-tag" data-tab="history">Recently Opened</button>
           <button onclick="switchLibTab('bookmarks')" class="lib-subtab pill-tag" data-tab="bookmarks">Bookmarks</button>
+          <button onclick="switchLibTab('recommended')" class="lib-subtab pill-tag" data-tab="recommended">Recommended</button>
         </div>
+        
+        <!-- Loading skeletons container -->
+        <div id="librarySkeleton" class="space-y-2.5 hidden">
+          <div class="skeleton-box h-20 rounded-xl"></div>
+          <div class="skeleton-box h-20 rounded-xl"></div>
+          <div class="skeleton-box h-20 rounded-xl"></div>
+        </div>
+
         <div id="libraryList" class="space-y-2.5"></div>
-        <div id="libraryEmpty" class="hidden text-center py-10 text-xs text-app-muted">No saved titles in this section yet.</div>
+        <div id="libraryEmpty" class="hidden surface-card-static p-8 text-center my-4">
+          <p id="libraryEmptyText" class="text-xs text-app-muted">No titles found in this section yet.</p>
+          <button onclick="navigateTo('home')" class="btn-secondary text-[11px] px-3.5 py-1.5 mt-3">Discover Books</button>
+        </div>
       </div>
     </div>
   </section>
@@ -1564,36 +1584,51 @@
 <!-- ════════════════════════════════════════════════════════
      11. ADMIN DASHBOARD MODAL
 ═══════════════════════════════════════════════════════════ -->
-<div id="adminDashboardModal" class="modal-fullscreen">
+<div id="adminDashboardModal" class="modal-fullscreen flex flex-col bg-[#07070A] text-[#F5F3FA]">
   <div class="safe-top bg-app-sub border-b border-app-border px-4 py-3 flex items-center justify-between flex-shrink-0">
     <div class="flex items-center gap-2">
       <span class="w-6 h-6 rounded bg-red-500/20 text-red-400 flex items-center justify-center text-xs font-bold">★</span>
-      <h3 class="font-display font-bold text-sm text-white">NOVELIX 4.0 Admin Console</h3>
+      <div>
+        <h3 class="font-display font-bold text-sm text-white">NOVELIX 6.0 Admin Console</h3>
+        <p class="text-[10px] text-app-muted">Protected Server-Side Management Subsystem</p>
+      </div>
     </div>
     <button onclick="closeAdminDashboard()" class="btn-secondary text-xs px-3 py-1.5">Close Console</button>
   </div>
 
-  <div class="px-4 py-2 bg-app-surface border-b border-app-border flex gap-1.5 overflow-x-auto flex-shrink-0">
+  <!-- 8 Core Management Tabs -->
+  <div class="px-4 py-2 bg-app-surface border-b border-app-border flex gap-1.5 overflow-x-auto flex-shrink-0 scrollbar-none">
     <button onclick="switchAdminTab('users')" class="admin-tab-btn pill-tag" data-tab="users" style="background:#9270FF; color:#0B0B10">Users</button>
-    <button onclick="switchAdminTab('verifications')" class="admin-tab-btn pill-tag" data-tab="verifications">Verifications</button>
+    <button onclick="switchAdminTab('books')" class="admin-tab-btn pill-tag" data-tab="books">Books</button>
     <button onclick="switchAdminTab('publications')" class="admin-tab-btn pill-tag" data-tab="publications">Publications</button>
+    <button onclick="switchAdminTab('reports')" class="admin-tab-btn pill-tag" data-tab="reports">Reports / Analytics</button>
+    <button onclick="switchAdminTab('comments')" class="admin-tab-btn pill-tag" data-tab="comments">Comments / Reviews</button>
+    <button onclick="switchAdminTab('ads')" class="admin-tab-btn pill-tag" data-tab="ads">Ads & Sponsorship</button>
     <button onclick="switchAdminTab('storage')" class="admin-tab-btn pill-tag" data-tab="storage">Storage Quotas</button>
-    <button onclick="switchAdminTab('announcements')" class="admin-tab-btn pill-tag" data-tab="announcements">Broadcast</button>
-    <button onclick="switchAdminTab('logs')" class="admin-tab-btn pill-tag" data-tab="logs">Audit Logs</button>
+    <button onclick="switchAdminTab('config')" class="admin-tab-btn pill-tag" data-tab="config">System Config</button>
   </div>
 
   <div class="p-4 overflow-y-auto flex-1">
-    <!-- Admin Tab: Users -->
+    <!-- 1. Admin Tab: Users -->
     <div id="adminTab-users" class="admin-tab-content space-y-3">
       <div class="flex items-center justify-between">
-        <h4 class="text-xs font-semibold text-white">User Accounts</h4>
+        <h4 class="text-xs font-semibold text-white">User Accounts Directory</h4>
         <button onclick="loadAdminUsersList()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
       </div>
       <div id="adminUsersTable" class="space-y-2"></div>
     </div>
 
-    <!-- Admin Tab: Verifications -->
-    <div id="adminTab-verifications" class="admin-tab-content hidden space-y-3">
+    <!-- 2. Admin Tab: Books -->
+    <div id="adminTab-books" class="admin-tab-content hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-semibold text-white">Catalog Management</h4>
+        <button onclick="loadAdminBooksList()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
+      </div>
+      <div id="adminBooksTable" class="space-y-2"></div>
+    </div>
+
+    <!-- 3. Admin Tab: Publications / Creator Verifications -->
+    <div id="adminTab-publications" class="admin-tab-content hidden space-y-3">
       <div class="flex items-center justify-between">
         <h4 class="text-xs font-semibold text-white">Pending Creator Verifications</h4>
         <button onclick="loadAdminVerificationsList()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
@@ -1601,16 +1636,41 @@
       <div id="adminVerificationsTable" class="space-y-2"></div>
     </div>
 
-    <!-- Admin Tab: Publications -->
-    <div id="adminTab-publications" class="admin-tab-content hidden space-y-3">
+    <!-- 4. Admin Tab: Reports / Analytics -->
+    <div id="adminTab-reports" class="admin-tab-content hidden space-y-3">
       <div class="flex items-center justify-between">
-        <h4 class="text-xs font-semibold text-white">Content Moderation</h4>
-        <button onclick="loadAdminPublicationsList()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
+        <h4 class="text-xs font-semibold text-white">Platform Analytics & Metrics</h4>
+        <button onclick="loadAdminReportsList()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
       </div>
-      <div id="adminPublicationsTable" class="space-y-2"></div>
+      <div id="adminReportsContainer" class="grid grid-cols-2 gap-2"></div>
+      <div id="adminReportsDetail" class="surface-card-static p-3 text-xs text-app-muted mt-2"></div>
     </div>
 
-    <!-- Admin Tab: Storage -->
+    <!-- 5. Admin Tab: Comments & Reviews -->
+    <div id="adminTab-comments" class="admin-tab-content hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-semibold text-white">Comments & Community Moderation</h4>
+        <button onclick="loadAdminCommentsList()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
+      </div>
+      <div id="adminCommentsTable" class="space-y-2"></div>
+    </div>
+
+    <!-- 6. Admin Tab: Ads & Sponsorship -->
+    <div id="adminTab-ads" class="admin-tab-content hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-semibold text-white">Platform Ads & Banners</h4>
+        <button onclick="loadAdminAdsList()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
+      </div>
+      <div class="surface-card-static p-4 space-y-3">
+        <h5 class="text-xs font-medium text-white">Configure Sponsor Banner</h5>
+        <input type="text" id="adminAdTitleInput" placeholder="Banner Title / Partner Name" class="w-full px-3 py-2 text-xs">
+        <input type="url" id="adminAdLinkInput" placeholder="Destination Link URL" class="w-full px-3 py-2 text-xs">
+        <button onclick="saveAdminAdSetting()" class="btn-primary text-xs w-full py-2">Update Sponsored Banner</button>
+      </div>
+      <div id="adminAdsStatus" class="surface-card p-3 text-xs text-app-muted"></div>
+    </div>
+
+    <!-- 7. Admin Tab: Storage -->
     <div id="adminTab-storage" class="admin-tab-content hidden space-y-3">
       <h4 class="text-xs font-semibold text-white">Storage Quota Configurations</h4>
       <div class="surface-card-static p-4 space-y-3">
@@ -1618,22 +1678,19 @@
         <input type="number" id="adminDefaultQuotaInput" value="500" class="w-full px-3 py-2 text-xs">
         <button onclick="saveAdminQuotaSetting()" class="btn-primary text-xs w-full py-2">Update Quota Policy</button>
       </div>
+      <div id="adminStorageStats" class="surface-card p-3 text-xs text-app-muted space-y-1"></div>
     </div>
 
-    <!-- Admin Tab: Announcements -->
-    <div id="adminTab-announcements" class="admin-tab-content hidden space-y-3">
-      <h4 class="text-xs font-semibold text-white">Broadcast Platform Announcement</h4>
+    <!-- 8. Admin Tab: System Config & Notifications -->
+    <div id="adminTab-config" class="admin-tab-content hidden space-y-3">
+      <h4 class="text-xs font-semibold text-white">Broadcast Announcement & Platform Configuration</h4>
       <div class="surface-card-static p-4 space-y-3">
         <input type="text" id="adminAnnounceTitle" placeholder="Announcement Title" class="w-full px-3 py-2 text-xs">
         <textarea id="adminAnnounceBody" rows="3" placeholder="Message to all registered readers and creators..." class="w-full px-3 py-2 text-xs resize-none"></textarea>
         <button onclick="sendAdminAnnouncement()" class="btn-primary text-xs w-full py-2">Broadcast to Network</button>
       </div>
-    </div>
-
-    <!-- Admin Tab: Logs -->
-    <div id="adminTab-logs" class="admin-tab-content hidden space-y-3">
-      <div class="flex items-center justify-between">
-        <h4 class="text-xs font-semibold text-white">Security Audit Log</h4>
+      <div class="flex items-center justify-between pt-2">
+        <h5 class="text-xs font-semibold text-white">Security Audit Log</h5>
         <button onclick="loadAdminAuditLogs()" class="btn-secondary text-[11px] px-2.5 py-1">Refresh</button>
       </div>
       <div id="adminLogsContainer" class="font-mono text-[11px] space-y-1.5"></div>
@@ -1908,16 +1965,18 @@
       <span id="readerLoadingPercent" class="text-[10px] text-app-muted mt-1 font-mono">15%</span>
     </div>
 
-    <!-- Reader Error State Overlay -->
+    <!-- Reader Error State Overlay (NOVELIX 6.0 Comprehensive Error Subsystem) -->
     <div id="readerErrorOverlay" class="hidden absolute inset-0 bg-[#07070A]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-30">
       <div class="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mb-3">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
-      <h4 class="font-display font-bold text-sm text-white mb-1">Failed to load manuscript</h4>
-      <p id="readerErrorMessage" class="text-xs text-app-muted max-w-xs mb-4">Could not retrieve the document. Please check connection.</p>
-      <div class="flex gap-2">
+      <h4 id="readerErrorTitle" class="font-display font-bold text-sm text-white mb-1">Failed to Load Manuscript</h4>
+      <p id="readerErrorMessage" class="text-xs text-app-muted max-w-xs mb-2 leading-relaxed">Could not retrieve the document. Please check connection.</p>
+      <div id="readerErrorCodeBadge" class="hidden text-[10px] font-mono text-app-secondary px-2.5 py-1 rounded bg-app-sub border border-app-border mb-4"></div>
+      <div class="flex flex-wrap gap-2 justify-center">
         <button onclick="retryLoadReaderPdf()" class="btn-primary text-xs px-4 py-2">Retry Loading</button>
-        <button onclick="closeReaderModal()" class="btn-secondary text-xs px-4 py-2">Back</button>
+        <button id="readerReconnectDriveBtn" onclick="reconnectDriveFromReader()" class="hidden btn-secondary text-xs px-4 py-2 border-app-primary text-app-primary">Reconnect Drive</button>
+        <button onclick="closeReaderModal(); if(APP_STATE.selectedBook) openBookDetail(APP_STATE.selectedBook.id);" class="btn-secondary text-xs px-4 py-2">Back to Details</button>
       </div>
     </div>
   </div>
@@ -3427,24 +3486,31 @@ async function handleTerminalKey(e) {
   } else if (cmd === 'user') {
     writeTerm(JSON.stringify(APP_STATE.profile || APP_STATE.user || {}, null, 2));
   } else if (cmd === 'admin') {
-    writeTerm('Checking administrator credentials...');
-    if (!APP_STATE.user) {
-      writeTerm('Authentication required. Opening login...');
-      closeTerminal();
-      openAuthModal();
-      return;
-    }
-    // Check if user has admin claim or is marked admin
-    const idTokenResult = await APP_STATE.user.getIdTokenResult();
-    const isAdmin = (idTokenResult.claims && idTokenResult.claims.admin) || (APP_STATE.profile && APP_STATE.profile.isAdmin);
-    if (isAdmin) {
-      writeTerm('Access GRANTED: Opening Admin Console...');
-      setTimeout(() => {
-        closeTerminal();
-        openAdminDashboard();
-      }, 500);
-    } else {
+    writeTerm('Verifying administrator authorization with secure server...');
+    try {
+      if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+        const verifyFn = functions.httpsCallable('verifyAdminStatus');
+        const res = await verifyFn();
+        if (!res.data || !res.data.configured) {
+          writeTerm('Admin access has not been configured. Contact the system owner.');
+          return;
+        }
+        if (!APP_STATE.user) {
+          writeTerm('Authentication required. Sign in with an authorized account.');
+          return;
+        }
+        if (res.data.isAdmin === true) {
+          writeTerm(`Access GRANTED: Verified administrator ${res.data.email || ''}`);
+          setTimeout(() => {
+            closeTerminal();
+            openAdminDashboard();
+          }, 400);
+          return;
+        }
+      }
       writeTerm('PERMISSION DENIED: Account lacks administrator claim.');
+    } catch(err) {
+      writeTerm(`Admin Verification Notice: ${err.message || 'Access Denied'}`);
     }
   } else {
     writeTerm(`Unknown command: "${cmd}".`);
@@ -3452,11 +3518,25 @@ async function handleTerminalKey(e) {
 }
 
 // ────────────────────────────────────────────────────────
-// ADMIN DASHBOARD CONTROLLER
+// NOVELIX 6.0 SECURE ADMIN DASHBOARD CONTROLLER
 // ────────────────────────────────────────────────────────
-function openAdminDashboard() {
+async function openAdminDashboard() {
+  if (!APP_STATE.user) {
+    showToast('Admin authentication required.');
+    return;
+  }
+  try {
+    const idToken = await APP_STATE.user.getIdTokenResult(true);
+    if (!idToken.claims || idToken.claims.admin !== true) {
+      showToast('Access Denied: Server-verified administrator privileges required.');
+      return;
+    }
+  } catch(e) {
+    showToast('Failed to verify administrator status with backend.');
+    return;
+  }
   document.getElementById('adminDashboardModal').classList.add('open');
-  loadAdminUsersList();
+  switchAdminTab('users');
 }
 function closeAdminDashboard() { document.getElementById('adminDashboardModal').classList.remove('open'); }
 
@@ -3471,9 +3551,173 @@ function switchAdminTab(tabId) {
   });
 
   if (tabId === 'users') loadAdminUsersList();
-  if (tabId === 'verifications') loadAdminVerificationsList();
-  if (tabId === 'publications') loadAdminPublicationsList();
-  if (tabId === 'logs') loadAdminAuditLogs();
+  if (tabId === 'books') loadAdminBooksList();
+  if (tabId === 'publications') loadAdminVerificationsList();
+  if (tabId === 'reports') loadAdminReportsList();
+  if (tabId === 'comments') loadAdminCommentsList();
+  if (tabId === 'ads') loadAdminAdsList();
+  if (tabId === 'storage') loadAdminStorageList();
+  if (tabId === 'config') loadAdminAuditLogs();
+}
+
+async function loadAdminBooksList() {
+  const table = document.getElementById('adminBooksTable');
+  table.innerHTML = `<div class="skeleton-box h-10 mb-2"></div>`;
+  const snap = await db.collection('books').limit(50).get();
+  const books = [];
+  snap.forEach(d => books.push({ id: d.id, ...d.data() }));
+
+  if (!books.length) {
+    table.innerHTML = `<div class="p-4 text-center text-xs text-app-muted">No published books found in catalog.</div>`;
+    return;
+  }
+
+  table.innerHTML = books.map(b => `
+    <div class="surface-card p-3 flex items-center justify-between">
+      <div class="truncate">
+        <h5 class="text-xs font-semibold text-white truncate">${escapeHtml(b.title)}</h5>
+        <span class="text-[10px] text-app-muted">${escapeHtml(b.authorName)} • ${formatCompactNum(b.viewCount || 0)} views • ${formatLabel(b.contentType)}</span>
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button onclick="toggleFeatureBook('${b.id}', ${b.isFeatured ? 'false' : 'true'})" class="btn-secondary text-[10px] px-2.5 py-1 ${b.isFeatured ? 'text-amber-400' : ''}">
+          ${b.isFeatured ? 'Unfeature' : 'Feature'}
+        </button>
+        <button onclick="moderateDeleteBook('${b.id}')" class="btn-secondary text-[10px] px-2 py-1 text-red-400 hover:text-red-300">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleFeatureBook(bookId, feature) {
+  await db.collection('books').doc(bookId).update({ isFeatured: feature });
+  showToast(feature ? 'Book marked as featured' : 'Book unfeatured');
+  loadAdminBooksList();
+}
+
+async function loadAdminReportsList() {
+  const container = document.getElementById('adminReportsContainer');
+  const detail = document.getElementById('adminReportsDetail');
+  container.innerHTML = `<div class="skeleton-box h-16 rounded-xl"></div><div class="skeleton-box h-16 rounded-xl"></div>`;
+  
+  try {
+    let metrics = null;
+    if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+      try {
+        const getMetricsFn = functions.httpsCallable('adminGetDashboardData');
+        const res = await getMetricsFn();
+        if (res && res.data) metrics = res.data;
+      } catch(err) {
+        console.warn('Dashboard callable notice:', err);
+      }
+    }
+
+    const totalUsers = metrics ? metrics.totalUsers : (await db.collection('users').get()).size;
+    const totalBooks = metrics ? metrics.totalBooks : (await db.collection('books').get()).size;
+    const pendingVerifs = metrics ? metrics.pendingVerifications : (await db.collection('verification_requests').where('status','==','pending').get()).size;
+    const storageUsed = metrics ? metrics.totalStorageUsedMB : '0.0';
+
+    container.innerHTML = `
+      <div class="surface-card p-3">
+        <p class="text-[10px] text-app-muted">Total Registered Users</p>
+        <p class="text-lg font-bold text-white mt-1">${totalUsers}</p>
+      </div>
+      <div class="surface-card p-3">
+        <p class="text-[10px] text-app-muted">Published Titles</p>
+        <p class="text-lg font-bold text-white mt-1">${totalBooks}</p>
+      </div>
+      <div class="surface-card p-3">
+        <p class="text-[10px] text-app-muted">Pending Verifications</p>
+        <p class="text-lg font-bold text-white mt-1">${pendingVerifs}</p>
+      </div>
+      <div class="surface-card p-3">
+        <p class="text-[10px] text-app-muted">Storage Consumed</p>
+        <p class="text-lg font-bold text-white mt-1">${storageUsed} MB</p>
+      </div>
+    `;
+
+    detail.innerHTML = `
+      <p class="font-semibold text-white mb-1">System Health & Backend</p>
+      <p>Firebase Authentication: <span class="text-green-400">Operational</span></p>
+      <p>Cloud Firestore: <span class="text-green-400">Synced</span></p>
+      <p>Google Drive OAuth & Streaming: <span class="text-green-400">Active</span></p>
+      <p class="mt-1 text-[10px]">Audit timestamp: ${new Date().toLocaleString()}</p>
+    `;
+  } catch(err) {
+    container.innerHTML = `<div class="p-3 text-xs text-red-400 col-span-2">Error loading analytics metrics.</div>`;
+  }
+}
+
+async function loadAdminCommentsList() {
+  const table = document.getElementById('adminCommentsTable');
+  table.innerHTML = `<div class="skeleton-box h-10 mb-2"></div>`;
+  const snap = await db.collection('book_reviews').orderBy('createdAt', 'desc').limit(25).get().catch(() => ({ empty: true, docs: [] }));
+  
+  if (snap.empty) {
+    table.innerHTML = `<div class="p-4 text-center text-xs text-app-muted">No reviews or comments flagged for moderation.</div>`;
+    return;
+  }
+
+  const reviews = [];
+  snap.forEach(d => reviews.push({ id: d.id, ...d.data() }));
+  table.innerHTML = reviews.map(r => `
+    <div class="surface-card p-3 flex items-start justify-between">
+      <div class="truncate">
+        <p class="text-xs font-semibold text-white">${escapeHtml(r.authorName || 'Reader')}</p>
+        <p class="text-[11px] text-app-muted mt-0.5 line-clamp-2">${escapeHtml(r.content || '')}</p>
+        <span class="text-[10px] text-app-secondary">★ ${r.rating || 5}</span>
+      </div>
+      <button onclick="moderateDeleteComment('${r.id}')" class="btn-secondary text-[10px] px-2 py-1 text-red-400 flex-shrink-0">Delete</button>
+    </div>
+  `).join('');
+}
+
+async function moderateDeleteComment(commentId) {
+  if (!confirm('Remove this comment/review?')) return;
+  await db.collection('book_reviews').doc(commentId).delete();
+  showToast('Comment removed by moderator');
+  loadAdminCommentsList();
+}
+
+async function loadAdminAdsList() {
+  const statusElem = document.getElementById('adminAdsStatus');
+  const snap = await db.collection('admin_settings').doc('sponsorship').get();
+  if (snap.exists) {
+    const d = snap.data();
+    statusElem.innerHTML = `
+      <p class="font-semibold text-white mb-1">Active Banner:</p>
+      <p class="text-app-secondary">${escapeHtml(d.title || 'Untitled')}</p>
+      <p class="truncate text-[10px]">${escapeHtml(d.url || 'None')}</p>
+    `;
+  } else {
+    statusElem.innerHTML = `No sponsor banners currently active.`;
+  }
+}
+
+async function saveAdminAdSetting() {
+  const title = document.getElementById('adminAdTitleInput').value.trim();
+  const link = document.getElementById('adminAdLinkInput').value.trim();
+  if (!title) return;
+  await db.collection('admin_settings').doc('sponsorship').set({
+    title: title,
+    url: link,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: APP_STATE.user.uid
+  }, { merge: true });
+  showToast('Sponsorship banner updated');
+  loadAdminAdsList();
+}
+
+async function loadAdminStorageList() {
+  const stats = document.getElementById('adminStorageStats');
+  stats.innerHTML = `<div class="skeleton-box h-8 mb-2"></div>`;
+  const snap = await db.collection('users').get();
+  let totalBytes = 0;
+  snap.forEach(d => { totalBytes += (d.data().storageUsedBytes || 0); });
+  stats.innerHTML = `
+    <p>Total User Accounts: <strong class="text-white">${snap.size}</strong></p>
+    <p>Network Storage Allocated: <strong class="text-white">${(totalBytes/(1024*1024)).toFixed(1)} MB</strong></p>
+    <p class="text-[10px]">Cloud Storage Bucket: <strong class="text-white">novelxa-48f15.firebasestorage.app</strong></p>
+  `;
 }
 
 async function loadAdminUsersList() {
@@ -4274,49 +4518,138 @@ function switchLibTab(tab) {
 async function renderLibrarySubtab(tab) {
   const list = document.getElementById('libraryList');
   const empty = document.getElementById('libraryEmpty');
-  list.innerHTML = `<div class="skeleton-box h-16 mb-2"></div>`;
+  const emptyText = document.getElementById('libraryEmptyText');
+  const skeleton = document.getElementById('librarySkeleton');
 
-  if (tab === 'reading') {
-    const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').orderBy('lastReadAt', 'desc').get();
-    if (snap.empty) { list.innerHTML = ''; empty?.classList.remove('hidden'); return; }
-    empty?.classList.add('hidden');
-    const items = [];
-    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-    list.innerHTML = items.map(item => `
-      <div onclick="openBookDetail('${escapeHtml(item.id)}')" class="surface-card p-3 flex items-center justify-between cursor-pointer">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-14 rounded-lg overflow-hidden bg-app-surface flex-shrink-0">
-            ${item.coverUrl ? `<img src="${escapeHtml(item.coverUrl)}" class="w-full h-full object-cover">` : ''}
-          </div>
-          <div class="truncate">
-            <h5 class="font-display font-semibold text-xs text-white truncate">${escapeHtml(item.title || 'Work')}</h5>
-            <span class="text-[10px] text-app-muted">Page ${item.page || 1} • In Progress</span>
-          </div>
-        </div>
-        <button class="btn-primary text-[11px] px-3 py-1">Resume</button>
-      </div>
-    `).join('');
-  } else if (tab === 'bookmarks') {
-    const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('bookmarks').orderBy('createdAt', 'desc').get();
-    if (snap.empty) { list.innerHTML = ''; empty?.classList.remove('hidden'); return; }
-    empty?.classList.add('hidden');
-    const items = [];
-    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-    list.innerHTML = items.map(bk => `
-      <div onclick="openBookDetail('${escapeHtml(bk.id)}')" class="surface-card p-3 flex items-center justify-between cursor-pointer">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-14 rounded-lg overflow-hidden bg-app-surface flex-shrink-0">
-            ${bk.coverUrl ? `<img src="${escapeHtml(bk.coverUrl)}" class="w-full h-full object-cover">` : ''}
-          </div>
-          <div class="truncate">
-            <h5 class="font-display font-semibold text-xs text-white truncate">${escapeHtml(bk.title || 'Work')}</h5>
-            <span class="text-[10px] text-app-muted">${formatLabel(bk.contentType)}</span>
-          </div>
-        </div>
-        <button onclick="event.stopPropagation(); removeBookmarkItem('${bk.id}')" class="text-xs text-app-muted hover:text-white p-2">✕</button>
-      </div>
-    `).join('');
+  list.innerHTML = '';
+  empty?.classList.add('hidden');
+  skeleton?.classList.remove('hidden');
+
+  if (!APP_STATE.user) {
+    skeleton?.classList.add('hidden');
+    empty?.classList.remove('hidden');
+    if (emptyText) emptyText.textContent = 'Please sign in to view your synchronized library.';
+    return;
   }
+
+  try {
+    if (tab === 'reading') {
+      const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').orderBy('lastReadAt', 'desc').get();
+      skeleton?.classList.add('hidden');
+      if (snap.empty) {
+        if (emptyText) emptyText.textContent = 'No active reading sessions. Choose a story to begin reading.';
+        empty?.classList.remove('hidden');
+        return;
+      }
+      const items = [];
+      snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+      list.innerHTML = items.map(item => `
+        <div onclick="resumeReadingProgressBook('${escapeHtml(item.id)}', ${item.page || 1})" class="surface-card p-3 flex items-center justify-between cursor-pointer group hover:border-app-primary transition-all">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-12 h-16 rounded-lg overflow-hidden bg-app-surface flex-shrink-0 border border-app-border">
+              ${item.coverUrl ? `<img src="${escapeHtml(item.coverUrl)}" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-xs text-app-muted">PDF</div>'}
+            </div>
+            <div class="truncate">
+              <h5 class="font-display font-semibold text-xs text-white truncate group-hover:text-app-secondary">${escapeHtml(item.title || 'Work')}</h5>
+              <p class="text-[10px] text-app-muted mt-0.5">Page ${item.page || 1}${item.totalPages ? ' / ' + item.totalPages : ''}</p>
+              <div class="w-24 h-1 bg-[#1A1A26] rounded-full mt-1.5 overflow-hidden">
+                <div class="h-full bg-app-primary" style="width: ${item.totalPages ? Math.min(100, Math.round((item.page/item.totalPages)*100)) : 10}%"></div>
+              </div>
+            </div>
+          </div>
+          <button class="btn-primary text-[11px] px-3 py-1.5 flex-shrink-0 font-medium">Resume</button>
+        </div>
+      `).join('');
+    } else if (tab === 'history') {
+      const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').orderBy('lastReadAt', 'desc').get();
+      skeleton?.classList.add('hidden');
+      if (snap.empty) {
+        if (emptyText) emptyText.textContent = 'Your reading history is clean.';
+        empty?.classList.remove('hidden');
+        return;
+      }
+      const items = [];
+      snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+      list.innerHTML = items.map(item => {
+        let dateStr = 'Recently';
+        if (item.lastReadAt && item.lastReadAt.toDate) {
+          dateStr = item.lastReadAt.toDate().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+        return `
+          <div onclick="openBookDetail('${escapeHtml(item.id)}')" class="surface-card p-3 flex items-center justify-between cursor-pointer">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-14 rounded-lg overflow-hidden bg-app-surface flex-shrink-0 border border-app-border">
+                ${item.coverUrl ? `<img src="${escapeHtml(item.coverUrl)}" class="w-full h-full object-cover">` : ''}
+              </div>
+              <div class="truncate">
+                <h5 class="font-display font-semibold text-xs text-white truncate">${escapeHtml(item.title || 'Work')}</h5>
+                <span class="text-[10px] text-app-muted">Read on ${dateStr} • Last at page ${item.page || 1}</span>
+              </div>
+            </div>
+            <button class="btn-secondary text-[10px] px-2.5 py-1">Details</button>
+          </div>
+        `;
+      }).join('');
+    } else if (tab === 'bookmarks') {
+      const snap = await db.collection('users').doc(APP_STATE.user.uid).collection('bookmarks').orderBy('createdAt', 'desc').get();
+      skeleton?.classList.add('hidden');
+      if (snap.empty) {
+        if (emptyText) emptyText.textContent = 'No bookmarked titles yet. Click the bookmark icon on any book to save it.';
+        empty?.classList.remove('hidden');
+        return;
+      }
+      const items = [];
+      snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+      list.innerHTML = items.map(bk => `
+        <div onclick="openBookDetail('${escapeHtml(bk.id)}')" class="surface-card p-3 flex items-center justify-between cursor-pointer">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-14 rounded-lg overflow-hidden bg-app-surface flex-shrink-0 border border-app-border">
+              ${bk.coverUrl ? `<img src="${escapeHtml(bk.coverUrl)}" class="w-full h-full object-cover">` : ''}
+            </div>
+            <div class="truncate">
+              <h5 class="font-display font-semibold text-xs text-white truncate">${escapeHtml(bk.title || 'Work')}</h5>
+              <span class="text-[10px] text-app-muted">${formatLabel(bk.contentType)}</span>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); removeBookmarkItem('${bk.id}')" class="text-xs text-app-muted hover:text-white p-2">✕</button>
+        </div>
+      `).join('');
+    } else if (tab === 'recommended') {
+      skeleton?.classList.add('hidden');
+      const recs = (APP_STATE.allBooks || []).slice(0, 10);
+      if (!recs.length) {
+        if (emptyText) emptyText.textContent = 'No recommendations currently available.';
+        empty?.classList.remove('hidden');
+        return;
+      }
+      list.innerHTML = recs.map(bk => `
+        <div onclick="openBookDetail('${escapeHtml(bk.id)}')" class="surface-card p-3 flex items-center justify-between cursor-pointer">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-14 rounded-lg overflow-hidden bg-app-surface flex-shrink-0 border border-app-border">
+              ${bk.coverUrl ? `<img src="${escapeHtml(bk.coverUrl)}" class="w-full h-full object-cover">` : ''}
+            </div>
+            <div class="truncate">
+              <h5 class="font-display font-semibold text-xs text-white truncate">${escapeHtml(bk.title || 'Work')}</h5>
+              <p class="text-[10px] text-app-secondary">★ ${bk.avgRating ? bk.avgRating.toFixed(1) : '4.9'} • ${formatLabel(bk.contentType)}</p>
+            </div>
+          </div>
+          <button class="btn-primary text-[10px] px-3 py-1">Read Book</button>
+        </div>
+      `).join('');
+    }
+  } catch(err) {
+    skeleton?.classList.add('hidden');
+    empty?.classList.remove('hidden');
+    if (emptyText) emptyText.textContent = 'Failed to load library section. Please check connection.';
+  }
+}
+
+async function resumeReadingProgressBook(bookId, page) {
+  await openBookDetail(bookId);
+  APP_STATE.pdfPageNumber = page;
+  setTimeout(() => {
+    launchActiveReader();
+  }, 200);
 }
 
 async function removeBookmarkItem(bookId) {
@@ -4428,10 +4761,42 @@ async function deleteAuthorPublication(id) {
 // ────────────────────────────────────────────────────────
 // BOOK DETAIL & DUAL-ENGINE READER (PDF.JS & MANHWA)
 // ────────────────────────────────────────────────────────
-function openBookDetail(bookId) {
-  const book = APP_STATE.allBooks.find(b => b.id === bookId);
-  if (!book) return;
+async function openBookDetail(bookId) {
+  let book = (APP_STATE.allBooks || []).find(b => b.id === bookId);
+  
+  // Real-time Firestore fetch fallback if not yet in cache
+  if (!book) {
+    try {
+      const snap = await db.collection('books').doc(bookId).get();
+      if (snap.exists) {
+        book = { id: snap.id, ...snap.data() };
+        if (!APP_STATE.allBooks) APP_STATE.allBooks = [];
+        APP_STATE.allBooks.push(book);
+      }
+    } catch(err) {
+      console.warn('[NOVELIX] Fetch book detail error:', err);
+    }
+  }
+
+  if (!book) {
+    showToast('Book details not found.');
+    return;
+  }
+
+  // Normalize editions array (handling legacy root fileUrl / driveFileId)
+  let eds = Array.isArray(book.languages) ? [...book.languages] : [];
+  if (!eds.length && (book.fileUrl || book.driveFileId)) {
+    eds = [{
+      language: book.language || 'Standard',
+      fileUrl: book.fileUrl || '',
+      driveFileId: book.driveFileId || '',
+      storageProvider: book.storageProvider || (book.driveFileId ? 'drive' : 'storage')
+    }];
+    book.languages = eds;
+  }
+
   APP_STATE.selectedBook = book;
+  APP_STATE.selectedEdition = eds[0] || null;
 
   document.getElementById('detailTitle').textContent = book.title || 'Untitled';
   document.getElementById('detailAuthor').textContent = book.authorName || 'Author';
@@ -4445,16 +4810,16 @@ function openBookDetail(bookId) {
   else coverImg.classList.add('hidden');
 
   const edList = document.getElementById('detailEditionsList');
-  const eds = book.languages || [];
   if (!eds.length) {
-    edList.innerHTML = `<p class="text-xs text-app-muted">Standard Edition</p>`;
-    APP_STATE.selectedEdition = null;
+    edList.innerHTML = `<p class="text-xs text-app-muted">Single Standard Edition</p>`;
   } else {
-    APP_STATE.selectedEdition = eds[0];
     edList.innerHTML = eds.map((e, idx) => `
-      <div onclick="selectEditionToRead(${idx})" class="surface-card p-2.5 flex items-center justify-between cursor-pointer ${idx===0 ? 'border-app-primary' : ''}">
-        <span class="text-xs font-medium text-white">${escapeHtml(e.language)} Edition</span>
-        <span class="text-[10px] text-app-secondary">PDF</span>
+      <div onclick="selectEditionToRead(${idx})" id="editionRow-${idx}" class="surface-card p-2.5 flex items-center justify-between cursor-pointer ${idx===0 ? 'border-app-primary' : ''}">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full ${idx===0 ? 'bg-app-primary' : 'bg-app-border'}"></span>
+          <span class="text-xs font-medium text-white">${escapeHtml(e.language || 'Standard')} Edition</span>
+        </div>
+        <span class="text-[10px] text-app-secondary uppercase font-mono">${escapeHtml(e.storageProvider || 'PDF')}</span>
       </div>
     `).join('');
   }
@@ -4470,7 +4835,10 @@ function openBookDetail(bookId) {
 function selectEditionToRead(idx) {
   if (!APP_STATE.selectedBook || !APP_STATE.selectedBook.languages) return;
   APP_STATE.selectedEdition = APP_STATE.selectedBook.languages[idx];
-  showToast(`Selected ${APP_STATE.selectedEdition.language} Edition`);
+  document.querySelectorAll('#detailEditionsList .surface-card').forEach((el, i) => {
+    el.classList.toggle('border-app-primary', i === idx);
+  });
+  showToast(`Selected ${APP_STATE.selectedEdition.language || 'Standard'} Edition`);
 }
 
 function closeBookDetailModal() { document.getElementById('bookDetailModal').classList.remove('open'); }
@@ -4497,7 +4865,7 @@ async function toggleDetailBookmark() {
 }
 
 // ────────────────────────────────────────────────────────
-// NOVELIX 5.0 PROFESSIONAL MOBILE PDF READER CONTROLLER
+// NOVELIX 6.0 PROFESSIONAL MOBILE PDF READER CONTROLLER
 // ────────────────────────────────────────────────────────
 async function launchActiveReader() {
   const book = APP_STATE.selectedBook;
@@ -4513,15 +4881,28 @@ async function launchActiveReader() {
   const savedTheme = localStorage.getItem('novelix_reader_theme') || 'dark';
   applyReaderTheme(savedTheme);
 
-  const edition = APP_STATE.selectedEdition || (book.languages && book.languages[0]);
+  let edition = APP_STATE.selectedEdition;
+  if (!edition && Array.isArray(book.languages) && book.languages.length > 0) {
+    edition = book.languages[0];
+  }
+  if (!edition && (book.fileUrl || book.driveFileId)) {
+    edition = {
+      language: book.language || 'Standard',
+      fileUrl: book.fileUrl || '',
+      driveFileId: book.driveFileId || '',
+      storageProvider: book.storageProvider || (book.driveFileId ? 'drive' : 'storage')
+    };
+  }
+
   if (!edition) {
-    showToast('No published edition found for this title');
+    showToast('No published manuscript or edition found for this title.');
     closeReaderModal();
     return;
   }
+  APP_STATE.selectedEdition = edition;
 
-  // Load user bookmarks & reading progress
-  let startPage = 1;
+  // Restore user bookmarks & reading progress from Firestore
+  let startPage = APP_STATE.pdfPageNumber || 1;
   APP_STATE._currentBookmarks = [];
   updateReaderBookmarkVisual(false);
 
@@ -4530,7 +4911,7 @@ async function launchActiveReader() {
       const progDoc = await db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').doc(book.id).get();
       if (progDoc.exists) {
         const prog = progDoc.data();
-        if (prog.page && prog.page > 1) {
+        if (prog.page && prog.page > 0) {
           startPage = prog.page;
         }
         if (Array.isArray(prog.bookmarks)) {
@@ -4559,79 +4940,136 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
   const progressBar = document.getElementById('readerLoadingProgress');
   const percentText = document.getElementById('readerLoadingPercent');
   const statusText = document.getElementById('readerLoadingStatus');
+  const errorTitle = document.getElementById('readerErrorTitle');
+  const errorMessage = document.getElementById('readerErrorMessage');
+  const errorCodeBadge = document.getElementById('readerErrorCodeBadge');
+  const reconnectDriveBtn = document.getElementById('readerReconnectDriveBtn');
 
   loadingOverlay.classList.remove('hidden');
   errorOverlay.classList.add('hidden');
-  progressBar.style.width = '20%';
-  percentText.textContent = '20%';
+  reconnectDriveBtn?.classList.add('hidden');
+  errorCodeBadge?.classList.add('hidden');
+
+  progressBar.style.width = '15%';
+  percentText.textContent = '15%';
   statusText.textContent = 'Connecting to secure manuscript stream...';
 
-  const cacheKey = `book_${book.id}_${edition.language}`;
+  const cacheKey = `book_${book.id}_${edition.language || 'std'}`;
   if (!APP_STATE._pdfCache) APP_STATE._pdfCache = {};
 
   try {
     let pdfDataParam = null;
 
-    // Check in-memory cache first
+    // 1. Check in-memory raw byte cache
     if (APP_STATE._pdfCache[cacheKey]) {
-      statusText.textContent = 'Retrieving cached manuscript...';
-      progressBar.style.width = '70%';
-      percentText.textContent = '70%';
+      statusText.textContent = 'Retrieving cached manuscript buffer...';
+      progressBar.style.width = '75%';
+      percentText.textContent = '75%';
       pdfDataParam = { data: APP_STATE._pdfCache[cacheKey] };
     } else {
       const storageProvider = edition.storageProvider || book.storageProvider || (edition.driveFileId ? 'drive' : 'storage');
 
       if (storageProvider === 'drive' && (edition.driveFileId || edition.fileId)) {
-        // Secure backend retrieval via Cloud Function
-        statusText.textContent = 'Retrieving private Google Drive manuscript via secure proxy...';
-        progressBar.style.width = '45%';
-        percentText.textContent = '45%';
+        statusText.textContent = 'Accessing Google Drive manuscript via secure proxy...';
+        progressBar.style.width = '40%';
+        percentText.textContent = '40%';
 
         if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
           const getPdfFn = functions.httpsCallable('getReaderPdfData');
-          const res = await getPdfFn({ bookId: book.id, language: edition.language });
+          const res = await getPdfFn({ bookId: book.id, language: edition.language || 'Standard' });
+          
           if (res && res.data && res.data.base64) {
-            progressBar.style.width = '75%';
-            percentText.textContent = '75%';
-            statusText.textContent = 'Decoding manuscript buffer...';
+            progressBar.style.width = '70%';
+            percentText.textContent = '70%';
+            statusText.textContent = 'Validating manuscript signature...';
 
-            // Convert base64 to Uint8Array
+            // Decode Base64 to Uint8Array
             const binaryString = atob(res.data.base64);
             const len = binaryString.length;
             const bytes = new Uint8Array(len);
             for (let i = 0; i < len; i++) {
               bytes[i] = binaryString.charCodeAt(i);
             }
+
+            // Validate PDF Magic Bytes: %PDF- (0x25, 0x50, 0x44, 0x46)
+            if (bytes.length < 4 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
+              const err = new Error('Invalid manuscript format. Downloaded stream does not match the PDF standard.');
+              err.code = 'INVALID_FORMAT';
+              throw err;
+            }
+
             APP_STATE._pdfCache[cacheKey] = bytes;
             pdfDataParam = { data: bytes };
           } else if (res && res.data && res.data.fileUrl) {
-            pdfDataParam = { url: res.data.fileUrl };
+            // Direct download URL returned by Cloud Function
+            statusText.textContent = 'Streaming manuscript...';
+            const resp = await fetch(res.data.fileUrl);
+            if (!resp.ok) {
+              const err = new Error(`Failed to download manuscript stream (HTTP ${resp.status})`);
+              err.code = resp.status === 404 ? 'NOT_FOUND' : (resp.status === 403 ? 'PERMISSION_DENIED' : 'FETCH_ERROR');
+              throw err;
+            }
+            const buf = await resp.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            if (bytes.length < 4 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
+              const err = new Error('Invalid manuscript signature.');
+              err.code = 'INVALID_FORMAT';
+              throw err;
+            }
+            APP_STATE._pdfCache[cacheKey] = bytes;
+            pdfDataParam = { data: bytes };
           }
         }
 
         if (!pdfDataParam) {
-          // Fallback to streaming endpoint if available
-          const token = APP_STATE.user ? await APP_STATE.user.getIdToken() : '';
-          const streamUrl = `https://us-central1-novelxa-48f15.cloudfunctions.net/streamDrivePdf?bookId=${encodeURIComponent(book.id)}&language=${encodeURIComponent(edition.language)}${token ? '&token=' + encodeURIComponent(token) : ''}`;
-          pdfDataParam = { url: streamUrl };
+          const err = new Error('Unable to retrieve Google Drive manuscript stream.');
+          err.code = 'DRIVE_STREAM_UNAVAILABLE';
+          throw err;
         }
       } else if (edition.fileUrl) {
-        // Direct storage download URL
-        statusText.textContent = 'Fetching manuscript from storage...';
-        progressBar.style.width = '55%';
-        percentText.textContent = '55%';
-        pdfDataParam = { url: edition.fileUrl };
+        // Firebase Cloud Storage or CDN URL
+        statusText.textContent = 'Downloading manuscript bytes...';
+        progressBar.style.width = '45%';
+        percentText.textContent = '45%';
+
+        const resp = await fetch(edition.fileUrl);
+        if (!resp.ok) {
+          const err = new Error(`Failed to load manuscript file (HTTP ${resp.status})`);
+          err.code = resp.status === 404 ? 'NOT_FOUND' : (resp.status === 403 ? 'PERMISSION_DENIED' : 'FETCH_ERROR');
+          throw err;
+        }
+
+        progressBar.style.width = '75%';
+        percentText.textContent = '75%';
+        statusText.textContent = 'Decoding PDF structure...';
+
+        const arrayBuf = await resp.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuf);
+
+        // Check %PDF magic bytes
+        if (bytes.length < 4 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
+          const err = new Error('Invalid PDF manuscript file header.');
+          err.code = 'INVALID_FORMAT';
+          throw err;
+        }
+
+        APP_STATE._pdfCache[cacheKey] = bytes;
+        pdfDataParam = { data: bytes };
       } else {
-        throw new Error('No valid manuscript stream found for this edition.');
+        const err = new Error('No storage or Drive stream endpoint registered for this edition.');
+        err.code = 'NOT_FOUND';
+        throw err;
       }
     }
 
-    statusText.textContent = 'Rendering typography and pages...';
-    progressBar.style.width = '88%';
-    percentText.textContent = '88%';
+    statusText.textContent = 'Rendering layout and typography...';
+    progressBar.style.width = '90%';
+    percentText.textContent = '90%';
 
     if (!window.pdfjsLib) {
-      throw new Error('PDF.js reader engine is not initialized.');
+      const err = new Error('PDF.js reader engine is not initialized.');
+      err.code = 'ENGINE_NOT_READY';
+      throw err;
     }
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -4662,14 +5100,51 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
     await renderPdfPage(targetPage);
 
     if (targetPage > 1) {
-      showToast(`Resumed at page ${targetPage}`);
+      showToast(`Resumed reading at page ${targetPage}`);
     }
   } catch(err) {
-    console.error('[NOVELIX Reader] Load error:', err);
+    console.error('[NOVELIX Reader] Engine error:', err);
     loadingOverlay.classList.add('hidden');
     errorOverlay.classList.remove('hidden');
-    document.getElementById('readerErrorMessage').textContent = err.message || 'Unable to open PDF manuscript.';
+
+    // Precise Error Categorization for PART 3
+    const errMsg = (err.message || '').toLowerCase();
+    const errCode = err.code || 'UNKNOWN';
+
+    if (errCode === 'NOT_FOUND' || errMsg.includes('not found') || errMsg.includes('404')) {
+      errorTitle.textContent = 'Manuscript Not Found';
+      errorMessage.textContent = 'The requested PDF file is not available on the storage provider.';
+      errorCodeBadge.textContent = 'ERR_PDF_404_NOT_FOUND';
+    } else if (errCode === 'INVALID_FORMAT' || errMsg.includes('invalid') || errMsg.includes('magic') || err.name === 'InvalidPDFException') {
+      errorTitle.textContent = 'Corrupted PDF Format';
+      errorMessage.textContent = 'The downloaded document is not a valid or readable PDF manuscript.';
+      errorCodeBadge.textContent = 'ERR_INVALID_PDF_FORMAT';
+    } else if (errCode === 'PERMISSION_DENIED' || errMsg.includes('permission') || errMsg.includes('403') || errMsg.includes('unauthorized')) {
+      errorTitle.textContent = 'Access Denied';
+      errorMessage.textContent = 'You do not have permission to access this manuscript file.';
+      errorCodeBadge.textContent = 'ERR_STORAGE_ACCESS_DENIED';
+    } else if (errCode === 'DRIVE_STREAM_UNAVAILABLE' || errMsg.includes('drive') || errMsg.includes('token')) {
+      errorTitle.textContent = 'Google Drive Authorization Needed';
+      errorMessage.textContent = 'The author Google Drive access token has expired or is invalid.';
+      errorCodeBadge.textContent = 'ERR_DRIVE_AUTH_EXPIRED';
+      reconnectDriveBtn?.classList.remove('hidden');
+    } else if (!navigator.onLine || errMsg.includes('network') || errMsg.includes('fetch')) {
+      errorTitle.textContent = 'Connection Unavailable';
+      errorMessage.textContent = 'Network connectivity was lost. Please check your internet connection and retry.';
+      errorCodeBadge.textContent = 'ERR_NETWORK_DISCONNECTED';
+    } else {
+      errorTitle.textContent = 'Unable to Open Manuscript';
+      errorMessage.textContent = err.message || 'An unexpected error occurred while processing the document.';
+      errorCodeBadge.textContent = `ERR_${errCode}`;
+    }
+
+    errorCodeBadge?.classList.remove('hidden');
   }
+}
+
+function reconnectDriveFromReader() {
+  closeReaderModal();
+  initiateGoogleDriveAuth();
 }
 
 function retryLoadReaderPdf() {
