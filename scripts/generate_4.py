@@ -240,14 +240,15 @@ HTML_CONTENT = r"""<!DOCTYPE html>
       50% { transform: scale(1.03); opacity: 1; filter: drop-shadow(0 0 25px rgba(146, 112, 255, 0.6)); }
     }
 
-    /* Skeleton Wave */
+    /* Skeleton Wave — premium shimmer */
     .skeleton-box {
-      background: linear-gradient(90deg, #14141D 25%, #1B1B27 50%, #14141D 75%);
-      background-size: 200% 100%;
-      animation: skeletonWave 1.6s ease-in-out infinite;
-      border-radius: 12px;
+      background: linear-gradient(90deg, #0F0F18 0%, #1D1D2E 35%, #2B2B3F 50%, #1D1D2E 65%, #0F0F18 100%);
+      background-size: 300% 100%;
+      animation: skeletonWave 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      border-radius: 10px;
       transform: translateZ(0);
       -webkit-transform: translateZ(0);
+      will-change: background-position;
     }
     @keyframes skeletonWave {
       0% { background-position: 200% 0; }
@@ -1888,10 +1889,11 @@ HTML_CONTENT = r"""<!DOCTYPE html>
           <span id="detailFormatTag" class="pill-tag text-[10px] mb-1">Book</span>
           <h2 id="detailTitle" class="font-display font-bold text-base text-white leading-tight mb-1">Title</h2>
           <p id="detailAuthor" class="text-xs text-app-primary font-medium mb-2">Author</p>
-          <div class="flex items-center gap-2 text-xs text-app-muted">
+          <div class="flex items-center gap-2 text-xs text-app-muted flex-wrap">
             <span id="detailRating">★ 4.8</span>
             <span>•</span>
             <span id="detailReadsCount">0 reads</span>
+            <span id="detailFileMeta" class="hidden text-app-secondary font-mono text-[10px]"></span>
           </div>
         </div>
       </div>
@@ -2103,6 +2105,8 @@ const APP_STATE = {
   pdfPageNumber: 1,
   pdfZoomScale: 1.35,
   pdfIsRendering: false,
+  readerFitMode: 'width',
+  _currentRenderTask: null,
   logoClicks: 0,
   logoLastClickTime: 0,
   realtimeBooksUnsub: null,
@@ -4546,7 +4550,7 @@ async function renderLibrarySubtab(tab) {
       const items = [];
       snap.forEach(d => items.push({ id: d.id, ...d.data() }));
       list.innerHTML = items.map(item => `
-        <div onclick="resumeReadingProgressBook('${escapeHtml(item.id)}', ${item.page || 1})" class="surface-card p-3 flex items-center justify-between cursor-pointer group hover:border-app-primary transition-all">
+        <div onclick="resumeReadingProgressBook('${escapeHtml(item.id)}', ${item.page || 1}, '${escapeHtml(item.selectedEditionLanguage || '')}')" class="surface-card p-3 flex items-center justify-between cursor-pointer group hover:border-app-primary transition-all">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-12 h-16 rounded-lg overflow-hidden bg-app-surface flex-shrink-0 border border-app-border">
               ${item.coverUrl ? `<img src="${escapeHtml(item.coverUrl)}" class="w-full h-full object-cover">` : '<div class="w-full h-full flex items-center justify-center text-xs text-app-muted">PDF</div>'}
@@ -4646,9 +4650,16 @@ async function renderLibrarySubtab(tab) {
   }
 }
 
-async function resumeReadingProgressBook(bookId, page) {
+async function resumeReadingProgressBook(bookId, page, editionLanguage) {
   await openBookDetail(bookId);
-  APP_STATE.pdfPageNumber = page;
+  // launchActiveReader already resets pdfPageNumber, so we set it AFTER openBookDetail
+  // but launchActiveReader will read Firestore progress — so we override selectedEdition
+  if (APP_STATE.selectedBook && editionLanguage && Array.isArray(APP_STATE.selectedBook.languages)) {
+    const matched = APP_STATE.selectedBook.languages.find(e => e.language === editionLanguage);
+    if (matched) {
+      APP_STATE.selectedEdition = matched;
+    }
+  }
   setTimeout(() => {
     launchActiveReader();
   }, 200);
@@ -4785,6 +4796,12 @@ async function openBookDetail(bookId) {
     return;
   }
 
+  // Clear any cached PDF bytes from a previous session so the reader
+  // always fetches the latest file (avoids showing stale content after updates)
+  if (APP_STATE._pdfCache) {
+    Object.keys(APP_STATE._pdfCache).forEach(k => { if (k.startsWith(`book_${bookId}_`)) delete APP_STATE._pdfCache[k]; });
+  }
+
   // Normalize editions array (handling legacy root fileUrl / driveFileId)
   let eds = Array.isArray(book.languages) ? [...book.languages] : [];
   if (!eds.length && (book.fileUrl || book.driveFileId)) {
@@ -4806,6 +4823,19 @@ async function openBookDetail(bookId) {
   document.getElementById('detailFormatTag').textContent = formatLabel(book.contentType);
   document.getElementById('detailReadsCount').textContent = `${formatCompactNum(book.viewCount || 0)} reads`;
   document.getElementById('detailRating').textContent = `★ ${book.avgRating ? book.avgRating.toFixed(1) : '4.8'}`;
+
+  // Show file info metadata if available
+  const detailMeta = document.getElementById('detailFileMeta');
+  if (detailMeta) {
+    const edCount = Array.isArray(book.languages) ? book.languages.length : (book.fileUrl ? 1 : 0);
+    const totalSize = Array.isArray(book.languages)
+      ? book.languages.reduce((s, e) => s + (e.fileSize || 0), 0)
+      : (book.fileSize || 0);
+    const sizeMB = totalSize > 0 ? ` · ${(totalSize / (1024 * 1024)).toFixed(1)} MB` : '';
+    const edLabel = edCount === 1 ? '1 edition' : `${edCount} editions`;
+    detailMeta.textContent = `${edLabel}${sizeMB}`;
+    detailMeta.classList.remove('hidden');
+  }
 
   const coverImg = document.getElementById('detailCoverImg');
   if (book.coverUrl) { coverImg.src = book.coverUrl; coverImg.classList.remove('hidden'); }
@@ -4873,47 +4903,76 @@ async function launchActiveReader() {
   const book = APP_STATE.selectedBook;
   if (!book) return;
 
+  // ── Reset all reader state for new book session ──────────────
+  APP_STATE.pdfDocument = null;
+  APP_STATE.pdfPageNumber = 1;
+  APP_STATE.pdfIsRendering = false;
+  APP_STATE.pdfZoomScale = 1.35;
+  APP_STATE.readerFitMode = 'width';
+  APP_STATE._pdfCache = APP_STATE._pdfCache || {};
+  APP_STATE._currentBookmarks = [];
+  // ─────────────────────────────────────────────────────────────
+
   closeBookDetailModal();
+  document.body.style.overflow = 'hidden';
+  document.body.style.position = 'fixed';
+  document.body.style.width = '100%';
   const readerModal = document.getElementById('readerModal');
   readerModal.classList.add('open');
-  document.getElementById('readerTitle').textContent = book.title;
+  document.getElementById('readerTitle').textContent = book.title || 'NOVELIX Reader';
   document.getElementById('readerSubtitle').textContent = book.authorName ? `By ${book.authorName}` : 'NOVELIX Reader';
+  document.getElementById('readerCurrentPageBadge').textContent = 'p. 1';
+  document.getElementById('readerTotalPagesBadge').textContent = '/ –';
+
+  // Reset canvas
+  const canvas = document.getElementById('pdfRenderCanvas');
+  if (canvas) { canvas.width = 0; canvas.height = 0; }
 
   // Apply saved theme
   const savedTheme = localStorage.getItem('novelix_reader_theme') || 'dark';
   applyReaderTheme(savedTheme);
 
+  // Resolve the edition to load
   let edition = APP_STATE.selectedEdition;
   if (!edition && Array.isArray(book.languages) && book.languages.length > 0) {
     edition = book.languages[0];
   }
-  if (!edition && (book.fileUrl || book.driveFileId)) {
+  if (!edition && (book.fileUrl || book.driveFileId || book.pdfUrl)) {
     edition = {
       language: book.language || 'Standard',
-      fileUrl: book.fileUrl || '',
+      fileUrl: book.fileUrl || book.pdfUrl || '',
+      storagePath: book.storagePath || '',
       driveFileId: book.driveFileId || '',
+      driveAccountId: book.driveAccountId || '',
       storageProvider: book.storageProvider || (book.driveFileId ? 'drive' : 'storage')
     };
   }
 
   if (!edition) {
-    showToast('No published manuscript or edition found for this title.');
-    closeReaderModal();
+    // Show error directly — no edition / file recorded in Firestore
+    document.getElementById('readerLoadingOverlay').classList.add('hidden');
+    const eo = document.getElementById('readerErrorOverlay');
+    eo.classList.remove('hidden');
+    document.getElementById('readerErrorTitle').textContent = 'No Manuscript Found';
+    document.getElementById('readerErrorMessage').textContent =
+      'This book does not have an attached PDF file yet. The author may not have uploaded one.';
+    document.getElementById('readerErrorCodeBadge').textContent = 'ERR_NO_EDITION';
+    document.getElementById('readerErrorCodeBadge').classList.remove('hidden');
+    document.getElementById('readerReconnectDriveBtn').classList.add('hidden');
     return;
   }
   APP_STATE.selectedEdition = edition;
-
-  // Restore user bookmarks & reading progress from Firestore
-  let startPage = APP_STATE.pdfPageNumber || 1;
-  APP_STATE._currentBookmarks = [];
   updateReaderBookmarkVisual(false);
 
+  // Restore user reading progress from Firestore
+  let startPage = 1;
   if (APP_STATE.user) {
     try {
-      const progDoc = await db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').doc(book.id).get();
+      const progDoc = await db.collection('users').doc(APP_STATE.user.uid)
+        .collection('reading_progress').doc(book.id).get();
       if (progDoc.exists) {
         const prog = progDoc.data();
-        if (prog.page && prog.page > 0) {
+        if (prog.page && prog.page > 0 && prog.bookId === book.id) {
           startPage = prog.page;
         }
         if (Array.isArray(prog.bookmarks)) {
@@ -4921,7 +4980,7 @@ async function launchActiveReader() {
         }
       }
     } catch(err) {
-      console.warn('[NOVELIX Reader] Reading progress notice:', err);
+      console.warn('[NOVELIX Reader] Reading progress load notice:', err);
     }
   }
 
@@ -4931,8 +4990,15 @@ async function launchActiveReader() {
 
 function closeReaderModal() {
   document.getElementById('readerModal').classList.remove('open');
+  document.body.style.overflow = '';
+  document.body.style.position = '';
   if (document.fullscreenElement) {
     document.exitFullscreen().catch(() => {});
+  }
+  // Cancel any in-progress render
+  if (APP_STATE._currentRenderTask) {
+    try { APP_STATE._currentRenderTask.cancel(); } catch(e) {}
+    APP_STATE._currentRenderTask = null;
   }
 }
 
@@ -4943,7 +5009,7 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
   const percentText = document.getElementById('readerLoadingPercent');
   const statusText = document.getElementById('readerLoadingStatus');
   const errorTitle = document.getElementById('readerErrorTitle');
-  const errorMessage = document.getElementById('readerErrorMessage');
+  const errorMsg = document.getElementById('readerErrorMessage');
   const errorCodeBadge = document.getElementById('readerErrorCodeBadge');
   const reconnectDriveBtn = document.getElementById('readerReconnectDriveBtn');
 
@@ -4952,192 +5018,238 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
   reconnectDriveBtn?.classList.add('hidden');
   errorCodeBadge?.classList.add('hidden');
 
-  progressBar.style.width = '15%';
-  percentText.textContent = '15%';
-  statusText.textContent = 'Connecting to secure manuscript stream...';
+  progressBar.style.width = '8%';
+  percentText.textContent = '8%';
+  statusText.textContent = 'Preparing secure manuscript stream…';
 
   const cacheKey = `book_${book.id}_${edition.language || 'std'}`;
   if (!APP_STATE._pdfCache) APP_STATE._pdfCache = {};
 
+  // ─── Helper: fetch URL as Uint8Array with PDF signature validation ─
+  async function fetchPdfBytes(url, progressCallback) {
+    let resolvedUrl = url;
+
+    // If Firebase Storage is available and edition has a storagePath, regenerate
+    // the download URL to avoid stale token issues
+    if (storage && edition.storagePath && url.includes('firebasestorage')) {
+      try {
+        resolvedUrl = await storage.ref(edition.storagePath).getDownloadURL();
+        console.log('[NOVELIX Reader] Refreshed Storage download URL.');
+      } catch(e) {
+        console.warn('[NOVELIX Reader] Could not refresh Storage URL — using original:', e.message);
+      }
+    }
+
+    const resp = await fetch(resolvedUrl, { method: 'GET', credentials: 'omit' });
+    if (!resp.ok) {
+      const e = new Error(`HTTP ${resp.status}: manuscript download failed`);
+      e.code = resp.status === 404 ? 'NOT_FOUND' : resp.status === 403 ? 'PERMISSION_DENIED' : 'FETCH_ERROR';
+      throw e;
+    }
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (contentType.includes('text/html') || contentType.includes('application/json')) {
+      // Got an error page or redirect instead of a PDF
+      const e = new Error('Server returned an HTML error page instead of a PDF file.');
+      e.code = 'INVALID_FORMAT';
+      throw e;
+    }
+
+    if (progressCallback) progressCallback(30);
+    const buf = await resp.arrayBuffer();
+    if (progressCallback) progressCallback(80);
+    const bytes = new Uint8Array(buf);
+    if (bytes.length < 5 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
+      const e = new Error('Downloaded file is not a valid PDF (bad magic bytes).');
+      e.code = 'INVALID_FORMAT';
+      throw e;
+    }
+    return bytes;
+  }
+  // ──────────────────────────────────────────────────────────────────
+
   try {
     let pdfDataParam = null;
 
-    // 1. Check in-memory raw byte cache
+    // ── 1. Try in-memory byte cache first ──────────────────────
     if (APP_STATE._pdfCache[cacheKey]) {
-      statusText.textContent = 'Retrieving cached manuscript buffer...';
+      statusText.textContent = 'Loading from device cache…';
       progressBar.style.width = '75%';
       percentText.textContent = '75%';
       pdfDataParam = { data: APP_STATE._pdfCache[cacheKey] };
     } else {
-      const storageProvider = edition.storageProvider || book.storageProvider || (edition.driveFileId ? 'drive' : 'storage');
+      const storageProvider = (edition.storageProvider || book.storageProvider ||
+        (edition.driveFileId ? 'drive' : 'storage')).toLowerCase();
 
+      // ── 2a. Google Drive — use secure Cloud Function proxy ───
       if (storageProvider === 'drive' && (edition.driveFileId || edition.fileId)) {
-        statusText.textContent = 'Accessing Google Drive manuscript via secure proxy...';
-        progressBar.style.width = '40%';
-        percentText.textContent = '40%';
+        statusText.textContent = 'Connecting to Google Drive proxy…';
+        progressBar.style.width = '30%';
+        percentText.textContent = '30%';
 
-        if (typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
-          const getPdfFn = functions.httpsCallable('getReaderPdfData');
-          const res = await getPdfFn({ bookId: book.id, language: edition.language || 'Standard' });
-          
-          if (res && res.data && res.data.base64) {
-            progressBar.style.width = '70%';
-            percentText.textContent = '70%';
-            statusText.textContent = 'Validating manuscript signature...';
+        if (typeof functions === 'undefined' || !functions || typeof functions.httpsCallable !== 'function') {
+          const e = new Error('Cloud Functions not available. Cannot retrieve Drive manuscript.');
+          e.code = 'DRIVE_STREAM_UNAVAILABLE';
+          throw e;
+        }
 
-            // Decode Base64 to Uint8Array
-            const binaryString = atob(res.data.base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
+        const getPdfFn = functions.httpsCallable('getReaderPdfData');
+        const res = await getPdfFn({ bookId: book.id, language: edition.language || 'Standard' });
 
-            // Validate PDF Magic Bytes: %PDF- (0x25, 0x50, 0x44, 0x46)
-            if (bytes.length < 4 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
-              const err = new Error('Invalid manuscript format. Downloaded stream does not match the PDF standard.');
-              err.code = 'INVALID_FORMAT';
-              throw err;
-            }
+        if (res && res.data && res.data.base64) {
+          progressBar.style.width = '65%';
+          percentText.textContent = '65%';
+          statusText.textContent = 'Decoding manuscript data…';
 
-            APP_STATE._pdfCache[cacheKey] = bytes;
-            pdfDataParam = { data: bytes };
-          } else if (res && res.data && res.data.fileUrl) {
-            // Direct download URL returned by Cloud Function
-            statusText.textContent = 'Streaming manuscript...';
-            const resp = await fetch(res.data.fileUrl);
-            if (!resp.ok) {
-              const err = new Error(`Failed to download manuscript stream (HTTP ${resp.status})`);
-              err.code = resp.status === 404 ? 'NOT_FOUND' : (resp.status === 403 ? 'PERMISSION_DENIED' : 'FETCH_ERROR');
-              throw err;
-            }
-            const buf = await resp.arrayBuffer();
-            const bytes = new Uint8Array(buf);
-            if (bytes.length < 4 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
-              const err = new Error('Invalid manuscript signature.');
-              err.code = 'INVALID_FORMAT';
-              throw err;
-            }
-            APP_STATE._pdfCache[cacheKey] = bytes;
-            pdfDataParam = { data: bytes };
+          const binaryString = atob(res.data.base64);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+
+          if (bytes.length < 5 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
+            const e = new Error('Google Drive returned an invalid PDF file.');
+            e.code = 'INVALID_FORMAT';
+            throw e;
+          }
+          APP_STATE._pdfCache[cacheKey] = bytes;
+          pdfDataParam = { data: bytes };
+
+        } else if (res && res.data && res.data.fileUrl) {
+          statusText.textContent = 'Downloading Drive manuscript…';
+          progressBar.style.width = '55%';
+          const bytes = await fetchPdfBytes(res.data.fileUrl, (p) => {
+            progressBar.style.width = `${55 + Math.round(p * 0.25)}%`;
+            percentText.textContent = `${55 + Math.round(p * 0.25)}%`;
+          });
+          APP_STATE._pdfCache[cacheKey] = bytes;
+          pdfDataParam = { data: bytes };
+        } else {
+          const e = new Error('Cloud Function returned no PDF data for this book.');
+          e.code = 'DRIVE_STREAM_UNAVAILABLE';
+          throw e;
+        }
+
+      // ── 2b. Firebase Storage or external HTTPS URL ───────────
+      } else if (edition.fileUrl || edition.storagePath) {
+        statusText.textContent = 'Downloading manuscript from cloud storage…';
+        progressBar.style.width = '35%';
+        percentText.textContent = '35%';
+
+        let downloadUrl = edition.fileUrl || '';
+
+        // Regenerate from storagePath if fileUrl is missing or stale
+        if (storage && edition.storagePath && !downloadUrl) {
+          try {
+            statusText.textContent = 'Generating secure download token…';
+            downloadUrl = await storage.ref(edition.storagePath).getDownloadURL();
+          } catch(e) {
+            const err = new Error(`Storage access failed: ${e.message}`);
+            err.code = e.code === 'storage/object-not-found' ? 'NOT_FOUND' : 'PERMISSION_DENIED';
+            throw err;
           }
         }
 
-        if (!pdfDataParam) {
-          const err = new Error('Unable to retrieve Google Drive manuscript stream.');
-          err.code = 'DRIVE_STREAM_UNAVAILABLE';
-          throw err;
-        }
-      } else if (edition.fileUrl) {
-        // Firebase Cloud Storage or CDN URL
-        statusText.textContent = 'Downloading manuscript bytes...';
-        progressBar.style.width = '45%';
-        percentText.textContent = '45%';
-
-        const resp = await fetch(edition.fileUrl);
-        if (!resp.ok) {
-          const err = new Error(`Failed to load manuscript file (HTTP ${resp.status})`);
-          err.code = resp.status === 404 ? 'NOT_FOUND' : (resp.status === 403 ? 'PERMISSION_DENIED' : 'FETCH_ERROR');
-          throw err;
+        if (!downloadUrl) {
+          const e = new Error('No download URL or storage path available for this edition.');
+          e.code = 'NOT_FOUND';
+          throw e;
         }
 
-        progressBar.style.width = '75%';
-        percentText.textContent = '75%';
-        statusText.textContent = 'Decoding PDF structure...';
-
-        const arrayBuf = await resp.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuf);
-
-        // Check %PDF magic bytes
-        if (bytes.length < 4 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
-          const err = new Error('Invalid PDF manuscript file header.');
-          err.code = 'INVALID_FORMAT';
-          throw err;
-        }
-
+        const bytes = await fetchPdfBytes(downloadUrl, (p) => {
+          progressBar.style.width = `${35 + Math.round(p * 0.45)}%`;
+          percentText.textContent = `${35 + Math.round(p * 0.45)}%`;
+        });
         APP_STATE._pdfCache[cacheKey] = bytes;
         pdfDataParam = { data: bytes };
+
       } else {
-        const err = new Error('No storage or Drive stream endpoint registered for this edition.');
-        err.code = 'NOT_FOUND';
-        throw err;
+        const e = new Error('This edition has no PDF file, storage path, or Drive file ID attached.');
+        e.code = 'NO_FILE_REGISTERED';
+        throw e;
       }
     }
 
-    statusText.textContent = 'Rendering layout and typography...';
+    // ── 3. Initialize PDF.js and render ─────────────────────────
+    statusText.textContent = 'Rendering manuscript pages…';
     progressBar.style.width = '90%';
     percentText.textContent = '90%';
 
     if (!window.pdfjsLib) {
-      const err = new Error('PDF.js reader engine is not initialized.');
-      err.code = 'ENGINE_NOT_READY';
-      throw err;
+      const e = new Error('PDF.js library failed to load from CDN. Check your internet connection.');
+      e.code = 'ENGINE_NOT_READY';
+      throw e;
     }
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const loadingTask = pdfjsLib.getDocument(pdfDataParam);
+    // Use disableWorker mode for Capacitor Android WebViews — prevents
+    // Web Worker CORS failures caused by the WebView origin policy
+    // when loading the external worker script from cdnjs.cloudflare.com.
+    pdfDataParam.disableWorker = true;
+    pdfDataParam.cMapUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/';
+    pdfDataParam.cMapPacked = true;
 
-    loadingTask.onProgress = function(progressData) {
-      if (progressData.total > 0) {
-        const pct = Math.round((progressData.loaded / progressData.total) * 100);
-        progressBar.style.width = `${Math.min(95, pct)}%`;
-        percentText.textContent = `${Math.min(95, pct)}%`;
+    // Clamp targetPage to valid range (1 is safe default)
+    const safeTargetPage = Math.max(1, parseInt(targetPage, 10) || 1);
+
+    const loadingTask = pdfjsLib.getDocument(pdfDataParam);
+    loadingTask.onProgress = function(pd) {
+      if (pd.total > 0) {
+        const pct = Math.round((pd.loaded / pd.total) * 100);
+        progressBar.style.width = `${Math.min(97, 90 + Math.round(pct * 0.07))}%`;
+        percentText.textContent = `${Math.min(97, pct)}%`;
       }
     };
 
     APP_STATE.pdfDocument = await loadingTask.promise;
     loadingOverlay.classList.add('hidden');
 
-    // Update scrubber bounds
     const totalPages = APP_STATE.pdfDocument.numPages;
+    const finalPage = Math.min(safeTargetPage, totalPages);
+
     const slider = document.getElementById('readerPageSlider');
-    if (slider) {
-      slider.min = '1';
-      slider.max = String(totalPages);
-      slider.value = String(targetPage);
-    }
+    if (slider) { slider.min = '1'; slider.max = String(totalPages); slider.value = String(finalPage); }
     document.getElementById('readerTotalPagesBadge').textContent = `/ ${totalPages}`;
 
-    // Render target page
-    await renderPdfPage(targetPage);
+    await renderPdfPage(finalPage);
 
-    if (targetPage > 1) {
-      showToast(`Resumed reading at page ${targetPage}`);
-    }
+    if (finalPage > 1) showToast(`Resumed reading at page ${finalPage} of ${totalPages}`);
+
   } catch(err) {
-    console.error('[NOVELIX Reader] Engine error:', err);
+    console.error('[NOVELIX Reader] loadPdfDocumentForReader error:', err);
     loadingOverlay.classList.add('hidden');
     errorOverlay.classList.remove('hidden');
 
-    // Precise Error Categorization for PART 3
-    const errMsg = (err.message || '').toLowerCase();
-    const errCode = err.code || 'UNKNOWN';
+    const rawMsg = (err.message || '').toLowerCase();
+    const code = err.code || err.name || 'UNKNOWN';
 
-    if (errCode === 'NOT_FOUND' || errMsg.includes('not found') || errMsg.includes('404')) {
+    if (code === 'NOT_FOUND' || code === 'storage/object-not-found' || rawMsg.includes('404') || rawMsg.includes('not found') || rawMsg.includes('no download url')) {
       errorTitle.textContent = 'Manuscript Not Found';
-      errorMessage.textContent = 'The requested PDF file is not available on the storage provider.';
-      errorCodeBadge.textContent = 'ERR_PDF_404_NOT_FOUND';
-    } else if (errCode === 'INVALID_FORMAT' || errMsg.includes('invalid') || errMsg.includes('magic') || err.name === 'InvalidPDFException') {
-      errorTitle.textContent = 'Corrupted PDF Format';
-      errorMessage.textContent = 'The downloaded document is not a valid or readable PDF manuscript.';
-      errorCodeBadge.textContent = 'ERR_INVALID_PDF_FORMAT';
-    } else if (errCode === 'PERMISSION_DENIED' || errMsg.includes('permission') || errMsg.includes('403') || errMsg.includes('unauthorized')) {
+      errorMsg.textContent = 'The PDF file for this book could not be located on the server.';
+      errorCodeBadge.textContent = 'ERR_PDF_NOT_FOUND';
+    } else if (code === 'INVALID_FORMAT' || code === 'InvalidPDFException' || rawMsg.includes('invalid') || rawMsg.includes('magic byte') || rawMsg.includes('bad magic')) {
+      errorTitle.textContent = 'Invalid PDF File';
+      errorMsg.textContent = 'The file returned by the server is not a readable PDF document.';
+      errorCodeBadge.textContent = 'ERR_INVALID_PDF';
+    } else if (code === 'PERMISSION_DENIED' || code === 'storage/unauthorized' || rawMsg.includes('403') || rawMsg.includes('permission') || rawMsg.includes('unauthorized')) {
       errorTitle.textContent = 'Access Denied';
-      errorMessage.textContent = 'You do not have permission to access this manuscript file.';
-      errorCodeBadge.textContent = 'ERR_STORAGE_ACCESS_DENIED';
-    } else if (errCode === 'DRIVE_STREAM_UNAVAILABLE' || errMsg.includes('drive') || errMsg.includes('token')) {
-      errorTitle.textContent = 'Google Drive Authorization Needed';
-      errorMessage.textContent = 'The author Google Drive access token has expired or is invalid.';
+      errorMsg.textContent = 'You do not have permission to view this manuscript.';
+      errorCodeBadge.textContent = 'ERR_PERMISSION_DENIED';
+    } else if (code === 'DRIVE_STREAM_UNAVAILABLE' || rawMsg.includes('drive') || rawMsg.includes('oauth') || rawMsg.includes('token')) {
+      errorTitle.textContent = 'Google Drive Authorization Required';
+      errorMsg.textContent = 'The Drive access token has expired. Reconnect your Google Drive account to continue.';
       errorCodeBadge.textContent = 'ERR_DRIVE_AUTH_EXPIRED';
       reconnectDriveBtn?.classList.remove('hidden');
-    } else if (!navigator.onLine || errMsg.includes('network') || errMsg.includes('fetch')) {
-      errorTitle.textContent = 'Connection Unavailable';
-      errorMessage.textContent = 'Network connectivity was lost. Please check your internet connection and retry.';
-      errorCodeBadge.textContent = 'ERR_NETWORK_DISCONNECTED';
+    } else if (code === 'ENGINE_NOT_READY') {
+      errorTitle.textContent = 'PDF Engine Not Ready';
+      errorMsg.textContent = 'The PDF rendering library could not be loaded. Please check your internet connection and try again.';
+      errorCodeBadge.textContent = 'ERR_ENGINE_NOT_READY';
+    } else if (!navigator.onLine || rawMsg.includes('failed to fetch') || rawMsg.includes('networkerror') || rawMsg.includes('network')) {
+      errorTitle.textContent = 'No Internet Connection';
+      errorMsg.textContent = 'The manuscript could not be downloaded. Please check your connection and retry.';
+      errorCodeBadge.textContent = 'ERR_NETWORK';
     } else {
       errorTitle.textContent = 'Unable to Open Manuscript';
-      errorMessage.textContent = err.message || 'An unexpected error occurred while processing the document.';
-      errorCodeBadge.textContent = `ERR_${errCode}`;
+      errorMsg.textContent = err.message || 'An unexpected error occurred. Please try again.';
+      errorCodeBadge.textContent = `ERR_${code}`.substring(0, 40);
     }
 
     errorCodeBadge?.classList.remove('hidden');
@@ -5146,13 +5258,29 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
 
 function reconnectDriveFromReader() {
   closeReaderModal();
-  initiateGoogleDriveAuth();
+  initiateGoogleDriveConnection();
+}
+
+// ─── ALIAS: navigateTo → switchPage ───────────────────────────
+function navigateTo(pageId) {
+  switchPage(pageId);
 }
 
 function retryLoadReaderPdf() {
   if (APP_STATE.selectedBook) {
+    APP_STATE.pdfIsRendering = false;
+    APP_STATE.pdfDocument = null;
+    if (APP_STATE._currentRenderTask) {
+      try { APP_STATE._currentRenderTask.cancel(); } catch(e) {}
+      APP_STATE._currentRenderTask = null;
+    }
+    // Flush the cache for this book so it re-downloads
+    const bookId = APP_STATE.selectedBook.id;
+    if (APP_STATE._pdfCache) {
+      Object.keys(APP_STATE._pdfCache).forEach(k => { if (k.startsWith(`book_${bookId}_`)) delete APP_STATE._pdfCache[k]; });
+    }
     const edition = APP_STATE.selectedEdition || (APP_STATE.selectedBook.languages && APP_STATE.selectedBook.languages[0]);
-    loadPdfDocumentForReader(APP_STATE.selectedBook, edition, APP_STATE.pdfPageNumber || 1);
+    loadPdfDocumentForReader(APP_STATE.selectedBook, edition, 1);
   }
 }
 
@@ -5160,25 +5288,32 @@ async function renderPdfPage(num) {
   if (!APP_STATE.pdfDocument || APP_STATE.pdfIsRendering) return;
   APP_STATE.pdfIsRendering = true;
 
-  try {
-    const page = await APP_STATE.pdfDocument.getPage(num);
-    const viewportContainer = document.getElementById('readerViewport');
-    const containerWidth = (viewportContainer.clientWidth || window.innerWidth) - 24;
+  const totalPages = APP_STATE.pdfDocument.numPages;
+  const safeNum = Math.max(1, Math.min(num, totalPages));
 
-    // Responsive scaling based on mode
-    let targetScale = APP_STATE.pdfZoomScale || 1.35;
-    if (APP_STATE.readerFitMode === 'width') {
-      const unscaledViewport = page.getViewport({ scale: 1.0 });
-      targetScale = Math.max(0.7, containerWidth / unscaledViewport.width);
-    } else if (APP_STATE.readerFitMode === 'page') {
-      const containerHeight = (viewportContainer.clientHeight || window.innerHeight) - 40;
-      const unscaledViewport = page.getViewport({ scale: 1.0 });
+  try {
+    const page = await APP_STATE.pdfDocument.getPage(safeNum);
+    const viewportContainer = document.getElementById('readerViewport');
+    const containerWidth = Math.max(100, (viewportContainer.clientWidth || window.innerWidth) - 16);
+    const containerHeight = Math.max(200, (viewportContainer.clientHeight || window.innerHeight) - 40);
+
+    // Compute scale — default to fit-to-width for mobile portrait reading
+    const unscaledViewport = page.getViewport({ scale: 1.0 });
+    let targetScale;
+    const mode = APP_STATE.readerFitMode || 'width';
+
+    if (mode === 'width') {
+      targetScale = Math.max(0.5, containerWidth / unscaledViewport.width);
+    } else if (mode === 'page') {
       const scaleW = containerWidth / unscaledViewport.width;
       const scaleH = containerHeight / unscaledViewport.height;
-      targetScale = Math.max(0.6, Math.min(scaleW, scaleH));
+      targetScale = Math.max(0.5, Math.min(scaleW, scaleH));
+    } else {
+      // 'custom' — use stored zoom scale
+      targetScale = Math.max(0.5, Math.min(4.0, APP_STATE.pdfZoomScale || 1.35));
     }
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3); // cap at 3x to avoid OOM on large screens
     const viewport = page.getViewport({ scale: targetScale * dpr });
 
     const canvas = document.getElementById('pdfRenderCanvas');
@@ -5188,22 +5323,32 @@ async function renderPdfPage(num) {
     canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
     canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
 
-    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    // Cancel any in-progress render on this canvas
+    if (APP_STATE._currentRenderTask) {
+      try { APP_STATE._currentRenderTask.cancel(); } catch(e) {}
+    }
+    APP_STATE._currentRenderTask = page.render({ canvasContext: ctx, viewport: viewport });
+    await APP_STATE._currentRenderTask.promise;
+    APP_STATE._currentRenderTask = null;
 
     // Update UI controls
-    APP_STATE.pdfPageNumber = num;
-    document.getElementById('readerCurrentPageBadge').textContent = `p. ${num}`;
+    APP_STATE.pdfPageNumber = safeNum;
+    document.getElementById('readerCurrentPageBadge').textContent = `p. ${safeNum}`;
     const slider = document.getElementById('readerPageSlider');
-    if (slider) slider.value = String(num);
+    if (slider) slider.value = String(safeNum);
 
     // Update Bookmark icon for current page
-    const isBookmarked = (APP_STATE._currentBookmarks || []).includes(num);
+    const isBookmarked = (APP_STATE._currentBookmarks || []).includes(safeNum);
     updateReaderBookmarkVisual(isBookmarked);
 
     // Save reading progress to Firestore (debounced)
-    saveReadingProgressDebounced(num, APP_STATE.pdfDocument.numPages);
+    saveReadingProgressDebounced(safeNum, totalPages);
   } catch (err) {
-    console.warn('[NOVELIX Reader] Render notice:', err);
+    if (err && err.type === 'cancel') {
+      // Normal — render was cancelled because user turned the page quickly
+      return;
+    }
+    console.warn('[NOVELIX Reader] Render error:', err.message || err);
   } finally {
     APP_STATE.pdfIsRendering = false;
   }
@@ -5224,15 +5369,85 @@ function changeReaderPage(delta) {
   }
 }
 
+// ── Reader: Touch gesture support (pinch-to-zoom + swipe-to-turn) ──
+(function initReaderTouchGestures() {
+  let _touchStartX = 0, _touchStartY = 0;
+  let _pinchStartDist = 0, _pinchStartScale = 1.35;
+  let _isTap = false;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('pdfRenderCanvas');
+    if (!canvas) return;
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        // Pinch start
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        _pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+        _pinchStartScale = APP_STATE.pdfZoomScale || 1.35;
+        e.preventDefault();
+      } else if (e.touches.length === 1) {
+        _touchStartX = e.touches[0].clientX;
+        _touchStartY = e.touches[0].clientY;
+        _isTap = true;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && _pinchStartDist > 0) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const ratio = dist / _pinchStartDist;
+        APP_STATE.pdfZoomScale = Math.max(0.5, Math.min(4.0, _pinchStartScale * ratio));
+        APP_STATE.readerFitMode = 'custom';
+        e.preventDefault();
+      } else if (e.touches.length === 1) {
+        const moveX = Math.abs(e.touches[0].clientX - _touchStartX);
+        const moveY = Math.abs(e.touches[0].clientY - _touchStartY);
+        if (moveX > 8 || moveY > 8) _isTap = false;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0 && _pinchStartDist > 0) {
+        // Pinch ended — render at new zoom
+        if (APP_STATE.pdfDocument) renderPdfPage(APP_STATE.pdfPageNumber);
+        _pinchStartDist = 0;
+      } else if (_isTap && e.changedTouches.length === 1) {
+        // Tap left/right third to turn pages
+        const tapX = e.changedTouches[0].clientX;
+        const w = window.innerWidth;
+        if (tapX < w * 0.3) {
+          changeReaderPage(-1);
+        } else if (tapX > w * 0.7) {
+          changeReaderPage(1);
+        }
+        _isTap = false;
+      }
+    });
+  });
+})();
+
 function zoomReader(delta) {
+  if (!APP_STATE.pdfDocument) return;
   APP_STATE.readerFitMode = 'custom';
-  APP_STATE.pdfZoomScale = Math.max(0.6, Math.min(3.0, (APP_STATE.pdfZoomScale || 1.35) + delta));
-  if (APP_STATE.pdfDocument) renderPdfPage(APP_STATE.pdfPageNumber);
+  const currentScale = APP_STATE.pdfZoomScale || 1.35;
+  APP_STATE.pdfZoomScale = Math.max(0.5, Math.min(4.0, currentScale + delta));
+  renderPdfPage(APP_STATE.pdfPageNumber);
+  showToast(`Zoom: ${Math.round(APP_STATE.pdfZoomScale * 100)}%`);
 }
 
 function setFitMode(mode) {
+  if (!APP_STATE.pdfDocument) return;
   APP_STATE.readerFitMode = mode;
-  if (APP_STATE.pdfDocument) renderPdfPage(APP_STATE.pdfPageNumber);
+  if (mode === 'width') {
+    showToast('Fit to width');
+  } else if (mode === 'page') {
+    showToast('Fit to page');
+  }
+  renderPdfPage(APP_STATE.pdfPageNumber);
 }
 
 // Themes: dark, midnight, sepia, light
@@ -5321,18 +5536,24 @@ function saveReadingProgressDebounced(pageNum, totalPages) {
 
   _progressSaveTimer = setTimeout(() => {
     const book = APP_STATE.selectedBook;
+    if (!book) return;
+    const edition = APP_STATE.selectedEdition;
     const pct = totalPages > 0 ? Math.round((pageNum / totalPages) * 100) : 0;
     db.collection('users').doc(APP_STATE.user.uid).collection('reading_progress').doc(book.id).set({
+      bookId: book.id,
       id: book.id,
-      title: book.title,
+      title: book.title || '',
+      authorName: book.authorName || '',
       coverUrl: book.coverUrl || '',
       contentType: book.contentType || 'book',
       page: pageNum,
       totalPages: totalPages,
       percent: pct,
+      selectedEditionLanguage: edition ? (edition.language || 'Standard') : 'Standard',
+      bookmarks: APP_STATE._currentBookmarks || [],
       lastReadAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).catch(() => {});
-  }, 1000);
+  }, 1500);
 }
 
 function renderManhwaReaderFallback(book) {
@@ -5345,6 +5566,38 @@ function renderManhwaReaderFallback(book) {
     </div>
   `;
 }
+
+// ────────────────────────────────────────────────────────
+// ANDROID BACK BUTTON HANDLER
+// ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('backbutton', (e) => {
+    e.preventDefault();
+    // If reader is open, close reader
+    const readerModal = document.getElementById('readerModal');
+    if (readerModal && readerModal.classList.contains('open')) {
+      closeReaderModal();
+      if (APP_STATE.selectedBook) openBookDetail(APP_STATE.selectedBook.id);
+      return;
+    }
+    // If book detail is open, close it
+    const bookDetail = document.getElementById('bookDetailModal');
+    if (bookDetail && bookDetail.classList.contains('open')) {
+      closeBookDetailModal();
+      return;
+    }
+    // If auth modal is open, close it
+    const authModal = document.getElementById('authModal');
+    if (authModal && authModal.classList.contains('open')) {
+      closeAuthModal?.();
+      return;
+    }
+    // Otherwise go home if not already there
+    if (APP_STATE.activePage !== 'home') {
+      switchPage('home');
+    }
+  }, false);
+});
 
 // ────────────────────────────────────────────────────────
 // NAVIGATION ROUTER
