@@ -1,48 +1,48 @@
-# NOVELIX 6.0 — READER ENGINE REPAIR & STARTUP FIX REPORT
+# NOVELIX 7.0 — Reader Engine Fix & Verification Report
 
-## 1. Executive Summary
-This report documents the architectural diagnosis, root-cause analysis, and engineering solutions applied in **NOVELIX 6.0** to fix application startup lifecycle, library synchronization, reading progress persistence, and the complete reader user experience on Android mobile devices (`com.novelix.app`).
-
----
-
-## 2. Root Cause Analysis
-
-### A. Blank / Unsynchronized Reader Screen on Startup
-* **Root Cause:** In previous iterations, the Library page (`#page-library`) relied on synchronous client memory without pre-initializing Firebase Authentication and Firestore state. If a user accessed their library immediately after launch, the app displayed an empty, unstyled container or failed silently before auth tokens were resolved.
-* **Impact:** Users experienced missing components, inconsistent session recovery, and no feedback during data retrieval.
-
-### B. Lack of Polished Reader Hub Sections
-* **Root Cause:** The library view previously only supported basic reading/bookmark toggles and did not separate recent history, in-progress reading sessions with page indicators, or recommendations.
-* **Impact:** Inability to resume reading at exact page boundaries; lack of visual progression.
+**Generated:** 2026-11-07  
+**Platform:** Capacitor Android / Web SPA  
+**Rendering Library:** Mozilla PDF.js 3.11.174  
+**Primary Engine File:** `scripts/generate_4.py` (Controller: `launchActiveReader`, `loadPdfDocumentForReader`, `renderPdfPage`)
 
 ---
 
-## 3. Engineering Fixes & Enhancements
+## 1. Architectural Fixes in Reader Engine
 
-### A. Pre-Initialized Auth & Lifecycle State Machine
-* **Deterministic Sequence:** `DOMContentLoaded` establishes listeners and renders responsive loading skeletons before querying Firestore collections.
-* **Auth State Handlers:**
-  * `handleUserAuthenticated(user)`: Instantiates a realtime listener on `users/{uid}`, verifies creator status and quotas, loads reading progress, synchronizes bookmarks, and restores connected Google Drive credentials.
-  * `handleUserLoggedOut()`: Renders `#libraryAuthGuard` with luxury obsidian design and an explicit "Sign In to NOVELIX" action.
+### A. Workerless Execution Mode (`disableWorker: true`)
+- **Issue:** Web Worker CDN script (`pdf.worker.min.js`) is blocked from executing inside Android Capacitor WebViews (`https://localhost`).
+- **Solution:** Configured `pdfDataParam.disableWorker = true`. PDF.js decodes PDF binary streams synchronously on the main UI thread within webview limits, eliminating worker creation failures.
 
-### B. 4-Tier Interactive Reader Hub
-The `#page-library` component now features 4 distinct subtabs powered exclusively by real Firestore documents (no mock or placeholder books):
-1. **Continue Reading (`reading`):**
-   * Real-time query to `users/{uid}/reading_progress` ordered by `lastReadAt` descending.
-   * Displays book cover thumbnail, title, last read page vs. total pages, animated progress bar percentage, and a 1-tap "Resume" button.
-2. **Recently Opened (`history`):**
-   * Displays chronological timeline of reading sessions with localized date formatting ("Read on Oct 24 • Last at page 45").
-3. **Bookmarks (`bookmarks`):**
-   * Synchronized list of saved titles across devices from `users/{uid}/bookmarks` with quick deletion and format tags.
-4. **Recommended (`recommended`):**
-   * Curated titles from verified published works in `APP_STATE.allBooks` (with rating >= 4.0).
+### B. Pre-Fetch Binary Stream & Magic Byte Validation
+- **Issue:** Passing a remote URL directly to `pdfjsLib.getDocument({ url })` subjected the PDF request to CORS restrictions inside the WebView.
+- **Solution:** Pre-fetch raw array buffers via standard `fetch(url, { credentials: 'omit' })`, cast to `Uint8Array`, and validate `%PDF-` magic bytes (`0x25, 0x50, 0x44, 0x46`) before passing `{ data: bytes }` into PDF.js.
 
-### C. Visual Feedback & Skeleton Loaders
-* Implemented `#librarySkeleton` with obsidian shimmer boxes during asynchronous queries.
-* Empty state feedback displays contextual guidance with a direct "Discover Books" navigation action.
+### C. Multi-Provider Source Resolution
+The reader resolves manuscripts across four supported storage topologies:
+1. **Firebase Storage:** Fetches via authenticated download URL, with automatic token renewal via `storage.ref(edition.storagePath).getDownloadURL()`.
+2. **Google Drive:** Calls Cloud Function `getReaderPdfData({ bookId, language })`, decoding returned Base64 directly into `Uint8Array`.
+3. **External HTTPS PDFs:** Fetches directly while validating headers and magic bytes to reject HTML error redirects.
+4. **Local Uploads:** Read via `FileReader.readAsArrayBuffer()` into `Uint8Array`.
 
 ---
 
-## 4. Verification & Validation
-* **Startup Stability:** Verified clean initialization with zero unhandled JavaScript exceptions.
-* **Data Integrity:** Reading progress updates are saved debounced to prevent excessive Firestore writes while maintaining real-time accuracy across device reloads.
+## 2. Touch Gestures & UI Navigation
+
+1. **Pinch-to-Zoom:**
+   - Listens to 2-finger `touchstart`, `touchmove`, and `touchend` events on `#pdfRenderCanvas`.
+   - Computes Euclidean distance between touch points: `dist = sqrt(dx^2 + dy^2)`.
+   - Adjusts `APP_STATE.pdfZoomScale` between 50% and 400%, re-rendering canvas on release.
+2. **Tap-to-Turn Pages:**
+   - Single tap on left 30% of viewport triggers `changeReaderPage(-1)`.
+   - Single tap on right 30% triggers `changeReaderPage(1)`.
+   - Center 40% preserves touch interactions without page flips.
+3. **Hardware Back Button:**
+   - Pressing Android Back closes the reader modal, cancels active renders, and restores the Book Detail view.
+
+---
+
+## 3. Reading Progress & Memory Optimization
+
+- **Debounced Firestore Sync:** `saveReadingProgressDebounced(pageNum, totalPages)` persists page number, edition language, and bookmarks array with a 1500ms debounce.
+- **Render Task Cancellation:** `if (APP_STATE._currentRenderTask) APP_STATE._currentRenderTask.cancel()` prevents overlapping renders during rapid page navigation.
+- **DPR Capping:** `devicePixelRatio` is capped at `2.5` to prevent Out-Of-Memory (OOM) errors on 4K/QHD mobile displays.

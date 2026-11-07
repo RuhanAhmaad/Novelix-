@@ -45,8 +45,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_APwu-OfPQmtnj-f-pwxfZw_OxiwM
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
 # ImgBB API
-IMGBB_API_KEY=a9985ccf572a0e05bce242e27cf8be33
-NEXT_PUBLIC_IMGBB_API_KEY=a9985ccf572a0e05bce242e27cf8be33
+IMGBB_API_KEY=
+NEXT_PUBLIC_IMGBB_API_KEY=
 
 # Google Drive OAuth Integration
 GOOGLE_CLIENT_ID=your_google_client_id_here.apps.googleusercontent.com

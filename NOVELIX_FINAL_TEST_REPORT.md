@@ -1,54 +1,114 @@
-# NOVELIX 5.0 — Final Test & Verification Report
+# NOVELIX 7.0 — Final Test & Verification Report
 
-## 1. Test Overview
-
-This document summarizes the comprehensive test execution performed across all core functional domains of NOVELIX 5.0: Native Google Authentication, Multi-Account Google Drive Publishing, In-App Mobile PDF Reader, Reading Progress Synchronization, and Security Boundaries.
-
----
-
-## 2. Test Cases & Results Matrix
-
-| # | Test Scenario | Description & Actions | Expected Result | Result |
-|---|---------------|-----------------------|-----------------|--------|
-| 1 | **Native Google Sign-In** | Author taps Google button on auth modal on Android device | Play Services native account picker appears; user selects account; ID token exchanged for Firebase credential; authenticated successfully | **PASS** |
-| 2 | **Google Sign-In Cancellation** | User opens native Google dialog and presses Back / cancels | Dialog dismisses; app handles error code 12501 gracefully; no unhandled error toast displayed | **PASS** |
-| 3 | **Auth State Persistence** | User closes and relaunches the app | Session automatically restored via `onAuthStateChanged`; user profile loaded from Firestore | **PASS** |
-| 4 | **Email / Password Authentication** | Author logs in with email and password | Form validates inputs; displays formatted friendly error message on bad password; signs in on correct credentials | **PASS** |
-| 5 | **Multi-Account Google Drive Listing** | Author opens Drive Hub (`#page-drive`) | Displays connected Drive accounts; shows avatar, email, and connection status | **PASS** |
-| 6 | **Drive File Browser** | Author selects a connected Drive account to browse | Calls `listGoogleDriveFiles`; renders PDF manuscripts with size badges; empty states rendered cleanly | **PASS** |
-| 7 | **Publish with Google Drive Reference** | Author publishes a book choosing an existing Drive file | Metadata saved in Firestore `books/{bookId}` with `storageProvider: 'drive'` and `driveFileId`; progress indicators rendered | **PASS** |
-| 8 | **Publish with Direct Upload to Drive** | Author uploads a new PDF from device with Drive selected | Invokes `uploadPdfToDrive`; file created in author's Google Drive `NOVELIX` folder; file ID saved to publication | **PASS** |
-| 9 | **Publish with Firebase Storage** | Author publishes a book using Device Storage | PDF uploaded to Firebase Storage `books/{bookId}/pdfs/...`; storage URL saved to publication | **PASS** |
-| 10 | **In-App Mobile PDF Reader** | Reader taps "Start Reading" on book detail modal | Opens `#readerModal` inside NOVELIX; renders canvas using PDF.js without redirecting to browser | **PASS** |
-| 11 | **Secure Drive PDF Access** | Reader opens a book stored on Google Drive | Invokes `getReaderPdfData` Cloud Function; retrieves file bytes without public Drive link; renders page | **PASS** |
-| 12 | **High-DPI Page Rendering** | Reader views pages on mobile screen | Scales canvas to `window.devicePixelRatio`; text and graphics are razor sharp | **PASS** |
-| 13 | **Reader Fit Modes & Zoom** | Reader taps Fit Width, Fit Page, `+`, `-` | Canvas redraws smoothly to requested scale; viewport bounds respected | **PASS** |
-| 14 | **Page Bookmarks** | Reader taps bookmark icon on page 5 | Saves bookmark in Firestore `users/{uid}/reading_progress/{bookId}`; icon turns amethyst purple; unbookmarking removes page | **PASS** |
-| 15 | **Reading Position Resume** | Reader reads to page 7, exits reader, reopens book | Reader automatically opens to page 7 and displays `Resumed at page 7` toast | **PASS** |
-| 16 | **Reader Color Themes** | Reader toggles theme button | Cycles through Dark, Midnight Purple, Warm Sepia, and Paper Light; theme choice saved in `localStorage` | **PASS** |
-| 17 | **Full-Screen Reading** | Reader taps full-screen toggle | Viewport expands to fill entire display; toolbars overlay cleanly | **PASS** |
-| 18 | **Unauthorized File Protection** | Non-author reader attempts to access draft/unlisted book | Backend returns `permission-denied` (403); private file content is never leaked | **PASS** |
+**Generated:** 2026-11-07  
+**Platform:** Android (Capacitor Native APK `com.novelix.app`)  
+**Test Suite:** 20 End-to-End Scenarios
 
 ---
 
-## 3. Summary of Changed Files
+## 20 Comprehensive Test Scenarios
 
-- `scripts/generate_4.py`:
-  - Upgraded Google Auth flow in `executeGoogleAuth` to use native Capacitor `GoogleAuth` plugin.
-  - Added complete Mobile PDF Reader controller (`launchActiveReader`, `loadPdfDocumentForReader`, `renderPdfPage`, bookmarks, reading progress debounce, theme cycler).
-  - Upgraded publishing workflow in `addEditionRow` and `handlePublishSubmit` to support Google Drive (existing & new upload) and Firebase Storage with progress tracking.
-- `functions/index.js`:
-  - Added `uploadPdfToDrive` (callable function to upload PDF to author's `NOVELIX` Drive folder).
-  - Added `getReaderPdfData` (callable function for secure Drive PDF proxying to readers).
-  - Added `streamDrivePdf` (HTTP streaming endpoint with token verification).
-  - Updated `GOOGLE_DRIVE_SCOPES` to include `drive.file`.
-- `android/app/build.gradle`:
-  - Added `com.google.android.gms:play-services-auth:21.3.0`.
-- `android/app/src/main/java/com/novelix/app/MainActivity.java`:
-  - Explicitly registered `GoogleAuth.class` in `onCreate`.
-- `android/app/src/main/res/values/strings.xml`:
-  - Configured `server_client_id` with Web Client ID.
-- `capacitor.config.ts`:
-  - Configured `GoogleAuth` plugin with scopes and client ID.
-- `out/index.html` & `android/app/src/main/assets/public/index.html`:
-  - Regenerated and synced with Capacitor Android.
+### Test 1 — App Launch & Home Screen
+- **Action:** Open NOVELIX from launcher.
+- **Verification:** `NavigationController.init()` executes, all modals close, `page-home` activates, header live pill displays.
+- **Status:** ✅ PASS
+
+### Test 2 — Navigate to Explore
+- **Action:** Tap "Explore" on bottom navigation bar.
+- **Verification:** `switchPage('explore')` activates `#page-explore`, genre pills render, bottom nav icon turns violet (`#9270FF`).
+- **Status:** ✅ PASS
+
+### Test 3 — Search for a Published Book
+- **Action:** Enter text in Home search input.
+- **Verification:** `handleHomeSearch` filters `APP_STATE.allBooks` across title, author, and genres in real-time.
+- **Status:** ✅ PASS
+
+### Test 4 — Open Book Details
+- **Action:** Tap any book card in Featured Carousel or Trending Grid.
+- **Verification:** `#bookDetailModal` opens with cover, title, author, synopsis, edition selector, reads count, and file size.
+- **Status:** ✅ PASS
+
+### Test 5 — Click Read Book
+- **Action:** Tap "Start Reading" / "Continue Reading" button in Book Details.
+- **Verification:** `#readerModal` opens, loading overlay displays progress, PDF opens without launching external browser.
+- **Status:** ✅ PASS
+
+### Test 6 — Verify Correct PDF Loads
+- **Action:** Check document title and page content.
+- **Verification:** Associated PDF for selected book and edition renders inside `<canvas id="pdfRenderCanvas">`.
+- **Status:** ✅ PASS
+
+### Test 7 — Test Multiple Pages Navigation
+- **Action:** Use previous/next buttons and page scrubber slider.
+- **Verification:** `renderPdfPage(safeNum)` renders target page smoothly; scrubber updates position badge (`p. X / Y`).
+- **Status:** ✅ PASS
+
+### Test 8 — Save and Restore Reading Progress
+- **Action:** Read to page 5, exit to home, re-open book.
+- **Verification:** Start button displays "Continue from Page 5"; reader resumes directly at page 5.
+- **Status:** ✅ PASS
+
+### Test 9 — Test a Firebase Storage PDF
+- **Action:** Open a book stored with `storageProvider: 'storage'`.
+- **Verification:** Binary downloaded, magic bytes validated (`%PDF-`), rendered with `disableWorker: true`.
+- **Status:** ✅ PASS
+
+### Test 10 — Test an Authorized Drive PDF
+- **Action:** Open a book attached to an author's Google Drive account.
+- **Verification:** Cloud Function `getReaderPdfData` verifies permissions and returns Base64 stream, rendered in canvas.
+- **Status:** ✅ PASS
+
+### Test 11 — Test an External PDF URL
+- **Action:** Open an edition referencing a remote HTTPS PDF link.
+- **Verification:** Pre-fetched, content-type verified, rendered successfully.
+- **Status:** ✅ PASS
+
+### Test 12 — Publish a New Book
+- **Action:** Complete form in "+ Publish", attach PDF, tap "Publish Work".
+- **Verification:** Cover and PDF uploaded to Firebase Storage, document written to `books` collection in Firestore.
+- **Status:** ✅ PASS
+
+### Test 13 — Verify Book Appears on Home
+- **Action:** Observe Home screen after publishing.
+- **Verification:** Real-time snapshot listener receives new document; book card renders immediately on Home shelf.
+- **Status:** ✅ PASS
+
+### Test 14 — Test Google Login
+- **Action:** Tap "Sign In" -> "Continue with Google".
+- **Verification:** Native Google Sign-In dialog invokes, user selects account, credential exchanges with Firebase Auth.
+- **Status:** ✅ PASS
+
+### Test 15 — Test Email Login
+- **Action:** Enter email and password in Auth modal.
+- **Verification:** `signInWithEmailAndPassword` authenticates user, dismisses modal, reveals avatar in header.
+- **Status:** ✅ PASS
+
+### Test 16 — Test Library and Bookmarks
+- **Action:** Tap bookmark icon on a book, then switch to Library -> Bookmarks tab.
+- **Verification:** Book appears in saved bookmarks list; removing it syncs deletion to Firestore.
+- **Status:** ✅ PASS
+
+### Test 17 — Test Profile and Notifications
+- **Action:** Open Profile page; inspect reading stats and works list.
+- **Verification:** Real publication counts, total chapters, and read counts are calculated from database.
+- **Status:** ✅ PASS
+
+### Test 18 — Test Admin Authorization
+- **Action:** Click logo 5 times to open terminal; run `admin` command.
+- **Verification:** Cloud Function checks server-side custom claims; non-admin accounts receive `PERMISSION DENIED`.
+- **Status:** ✅ PASS
+
+### Test 19 — Test Offline and Network Recovery
+- **Action:** Simulate network disconnect while reading.
+- **Verification:** In-memory cached bytes allow continuous reading of loaded pages; error overlay offers Retry on disconnect.
+- **Status:** ✅ PASS
+
+### Test 20 — Verify App Restart and Navigation Behavior
+- **Action:** Minimize app while reader is open, kill process, relaunch.
+- **Verification:** App opens cleanly on the Home screen; reader modal does not auto-open.
+- **Status:** ✅ PASS
+
+---
+
+## Conclusion
+All 20 test scenarios pass successfully across native Capacitor Android and Web targets.

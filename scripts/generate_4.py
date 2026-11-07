@@ -2056,7 +2056,8 @@ const FIREBASE_CONFIG = {
 
 const GOOGLE_CLIENT_ID = "239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com"; // Firebase Auth
 const GOOGLE_DRIVE_CLIENT_ID = "23165793827-un6a2kh299r2e7rroj9nivoku5josvlh.apps.googleusercontent.com"; // Google Drive OAuth Client
-const IMGBB_KEY = 'a9985ccf572a0e05bce242e27cf8be33';
+// NOTE: Third-party API keys eradicated from client bundle. All assets use authenticated Firebase Storage.
+const IMGBB_KEY = '';
 
 // Default storage quota per user in bytes (500 MB)
 const DEFAULT_QUOTA_BYTES = 500 * 1024 * 1024;
@@ -2119,9 +2120,100 @@ const APP_STATE = {
 };
 
 // ────────────────────────────────────────────────────────
+// NAVIGATION STATE CONTROLLER
+// ────────────────────────────────────────────────────────
+const NavigationController = {
+  history: ['home'],
+  
+  init() {
+    // 1. Force close any lingering modals on app launch
+    document.querySelectorAll('.modal-fullscreen, .modal-sheet').forEach(m => m.classList.remove('open'));
+    document.getElementById('devTerminal')?.classList.remove('open');
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
+
+    // 2. Clear orphan reader state
+    APP_STATE.pdfDocument = null;
+    APP_STATE.pdfIsRendering = false;
+    if (APP_STATE._currentRenderTask) {
+      try { APP_STATE._currentRenderTask.cancel(); } catch(e) {}
+      APP_STATE._currentRenderTask = null;
+    }
+
+    // 3. Guarantee landing on Home screen
+    APP_STATE.activePage = 'home';
+    switchPage('home');
+    console.log('[NOVELIX] NavigationController: Clean Home startup guaranteed.');
+  },
+
+  navigate(pageId) {
+    if (APP_STATE.activePage !== pageId) {
+      this.history.push(pageId);
+      if (this.history.length > 20) this.history.shift();
+    }
+    switchPage(pageId);
+  },
+
+  handleBackButton(e) {
+    if (e) e.preventDefault();
+
+    // Priority 1: Reader Modal open
+    const readerModal = document.getElementById('readerModal');
+    if (readerModal && readerModal.classList.contains('open')) {
+      closeReaderModal();
+      if (APP_STATE.selectedBook) openBookDetail(APP_STATE.selectedBook.id);
+      return;
+    }
+
+    // Priority 2: Book Detail Modal open
+    const bookDetail = document.getElementById('bookDetailModal');
+    if (bookDetail && bookDetail.classList.contains('open')) {
+      closeBookDetailModal();
+      return;
+    }
+
+    // Priority 3: Any other open modal
+    const otherModals = ['authModal', 'adminDashboardModal', 'notifModal', 'settingsModal', 'drivePickerModal'];
+    for (const mId of otherModals) {
+      const el = document.getElementById(mId);
+      if (el && el.classList.contains('open')) {
+        el.classList.remove('open');
+        return;
+      }
+    }
+
+    // Priority 4: Developer Terminal
+    const term = document.getElementById('devTerminal');
+    if (term && term.classList.contains('open')) {
+      term.classList.remove('open');
+      return;
+    }
+
+    // Priority 5: Secondary tabs -> Return to Home
+    if (APP_STATE.activePage !== 'home') {
+      switchPage('home');
+      return;
+    }
+
+    // Priority 6: Already on Home — double back to exit
+    const now = Date.now();
+    if (!NavigationController._lastBackPress || now - NavigationController._lastBackPress > 2000) {
+      NavigationController._lastBackPress = now;
+      showToast('Press back again to exit NOVELIX');
+    } else {
+      if (window.Capacitor?.Plugins?.App?.exitApp) {
+        window.Capacitor.Plugins.App.exitApp();
+      }
+    }
+  }
+};
+
+// ────────────────────────────────────────────────────────
 // LIFECYCLE INITIALIZATION
 // ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  NavigationController.init();
   setupLogoTerminalTrigger();
   setupOnlineOfflineListeners();
   addEditionRow();
@@ -3286,32 +3378,15 @@ async function handleProfileAvatarUpload(input) {
     return;
   }
 
-  showToast('Uploading profile picture...');
+  showToast('Uploading profile picture to secure storage...');
   try {
-    let photoURL = '';
-    // Primary: ImgBB Cloud API
-    if (IMGBB_KEY) {
-      try {
-        const fd = new FormData();
-        fd.append('image', file);
-        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: fd });
-        const data = await res.json();
-        if (data && data.success) {
-          photoURL = data.data.url;
-        }
-      } catch(imgbbErr) {
-        console.warn('ImgBB proxy note:', imgbbErr);
-      }
-    }
-
-    // Fallback: Firebase Storage
-    if (!photoURL) {
-      const snap = await storage.ref(`avatars/${APP_STATE.user.uid}/${Date.now()}.jpg`).put(file);
-      photoURL = await snap.ref.getDownloadURL();
-    }
+    const snap = await storage.ref(`avatars/${APP_STATE.user.uid}/${Date.now()}.jpg`).put(file);
+    const photoURL = await snap.ref.getDownloadURL();
 
     await db.collection('users').doc(APP_STATE.user.uid).set({ photoURL: photoURL }, { merge: true });
     await APP_STATE.user.updateProfile({ photoURL: photoURL });
+    if (APP_STATE.profile) APP_STATE.profile.photoURL = photoURL;
+    updateHeaderAvatarVisual();
     showToast('Profile photo updated successfully');
   } catch(e) {
     showToast(`Upload failed: ${e.message}`);
@@ -4119,19 +4194,9 @@ function togglePublishGenre(btn, genre) {
 }
 
 async function uploadMediaFile(file, path) {
-  try {
-    const snap = await storage.ref(path).put(file);
-    return await snap.ref.getDownloadURL();
-  } catch(err) {
-    if (file.type.startsWith('image/') && IMGBB_KEY) {
-      const fd = new FormData();
-      fd.append('image', file);
-      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:'POST', body: fd });
-      const data = await res.json();
-      if (data && data.success) return data.data.url;
-    }
-    throw err;
-  }
+  if (!storage) throw new Error('Firebase Storage service is uninitialized');
+  const snap = await storage.ref(path).put(file);
+  return await snap.ref.getDownloadURL();
 }
 
 function readFileAsBase64(file) {
@@ -4163,9 +4228,16 @@ async function handlePublishSubmit(event, forceStatus) {
   setButtonLoading('publishSubmitBtn', true, 'Uploading cover...');
 
   try {
-    const bookId = db.collection('books').doc().id;
+    const isEditing = !!APP_STATE.editingBookId;
+    const bookId = isEditing ? APP_STATE.editingBookId : db.collection('books').doc().id;
     let coverUrl = '';
     let coverSize = coverFile ? coverFile.size : 0;
+
+    // Preserve existing cover if not replaced
+    if (!coverFile && isEditing) {
+      const existing = (APP_STATE.allBooks || []).find(b => b.id === bookId);
+      if (existing) { coverUrl = existing.coverUrl || ''; coverSize = existing.coverSize || 0; }
+    }
 
     if (coverFile) {
       coverUrl = await uploadMediaFile(coverFile, `covers/${bookId}/${Date.now()}.jpg`);
@@ -4275,7 +4347,10 @@ async function handlePublishSubmit(event, forceStatus) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    showToast('Publication published live to NOVELIX!');
+    showToast(isEditing ? 'Publication updated successfully!' : 'Publication published live to NOVELIX!');
+    APP_STATE.editingBookId = null;
+    const submitBtn = document.getElementById('publishSubmitBtn');
+    if (submitBtn) submitBtn.textContent = 'Publish Work';
     resetPublishForm();
     switchPage('home');
   } catch(err) {
@@ -4380,7 +4455,7 @@ function renderEditorialFeaturedCard(book) {
       <h4 class="font-display font-bold text-xs text-white truncate mb-0.5">${escapeHtml(book.title)}</h4>
       <p class="text-[11px] text-app-muted truncate mb-2">${escapeHtml(book.authorName || 'Author')}</p>
       <div class="flex items-center justify-between text-[10px] text-app-secondary">
-        <span>★ ${book.avgRating ? book.avgRating.toFixed(1) : '4.8'}</span>
+        <span>${(book.avgRating && book.avgRating > 0) ? `★ ${book.avgRating.toFixed(1)}` : 'New'}</span>
         <span>${formatCompactNum(book.viewCount || 0)} reads</span>
       </div>
     </div>
@@ -4400,8 +4475,8 @@ function renderBookCard(book) {
         <p class="text-[10px] text-app-muted truncate mb-1.5">${escapeHtml(book.authorName || 'Author')}</p>
       </div>
       <div class="flex items-center justify-between text-[10px] text-app-secondary pt-1 border-t border-app-border/40">
-        <span>★ ${book.avgRating ? book.avgRating.toFixed(1) : '4.8'}</span>
-        <span>${formatCompactNum(book.viewCount || 0)}</span>
+        <span>${(book.avgRating && book.avgRating > 0) ? `★ ${book.avgRating.toFixed(1)}` : 'New'}</span>
+        <span>${formatCompactNum(book.viewCount || 0)} reads</span>
       </div>
     </div>
   `;
@@ -4563,7 +4638,7 @@ async function renderLibrarySubtab(tab) {
               </div>
             </div>
           </div>
-          <button class="btn-primary text-[11px] px-3 py-1.5 flex-shrink-0 font-medium">Resume</button>
+          <button onclick="directResumeBook('${escapeHtml(item.id)}', ${item.page || 1}, '${escapeHtml(item.selectedEditionLanguage || \'\')}', event)" class="btn-primary text-[11px] px-3 py-1.5 flex-shrink-0 font-medium">Resume</button>
         </div>
       `).join('');
     } else if (tab === 'history') {
@@ -4651,18 +4726,28 @@ async function renderLibrarySubtab(tab) {
 }
 
 async function resumeReadingProgressBook(bookId, page, editionLanguage) {
+  // Safe user-driven resume: opens Book Detail with edition pre-selected and page highlighted
   await openBookDetail(bookId);
-  // launchActiveReader already resets pdfPageNumber, so we set it AFTER openBookDetail
-  // but launchActiveReader will read Firestore progress — so we override selectedEdition
   if (APP_STATE.selectedBook && editionLanguage && Array.isArray(APP_STATE.selectedBook.languages)) {
     const matched = APP_STATE.selectedBook.languages.find(e => e.language === editionLanguage);
-    if (matched) {
-      APP_STATE.selectedEdition = matched;
-    }
+    if (matched) APP_STATE.selectedEdition = matched;
   }
-  setTimeout(() => {
-    launchActiveReader();
-  }, 200);
+  if (page && page > 1) {
+    const startBtn = document.getElementById('btnStartReading');
+    if (startBtn) startBtn.textContent = `Continue from Page ${page}`;
+  }
+}
+
+// Direct one-tap resume when user explicitly taps "Resume" button
+async function directResumeBook(bookId, page, editionLanguage, event) {
+  if (event) event.stopPropagation();
+  await openBookDetail(bookId);
+  if (APP_STATE.selectedBook && editionLanguage && Array.isArray(APP_STATE.selectedBook.languages)) {
+    const matched = APP_STATE.selectedBook.languages.find(e => e.language === editionLanguage);
+    if (matched) APP_STATE.selectedEdition = matched;
+  }
+  APP_STATE.pdfPageNumber = page || 1;
+  launchActiveReader();
 }
 
 async function removeBookmarkItem(bookId) {
@@ -4737,27 +4822,109 @@ function renderProfileWorksTab() {
   const list = document.getElementById('profileTabContentWorks');
   const myWorks = APP_STATE.allBooks.filter(b => b.authorId === APP_STATE.user.uid);
   if (!myWorks.length) {
-    list.innerHTML = `<div class="surface-card-static p-6 text-center text-xs text-app-muted">No publications authored under this account yet.</div>`;
+    list.innerHTML = `<div class="surface-card-static p-6 text-center text-xs text-app-muted">No publications authored under this account yet. Tap "+ Publish" to create your first title.</div>`;
     return;
   }
 
-  list.innerHTML = myWorks.map(b => `
+  list.innerHTML = myWorks.map(b => {
+    const isDraft = b.publishStatus === 'draft' || b.status === 'draft';
+    const isUnlisted = b.visibility === 'unlisted';
+    const statusPill = isDraft ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">Draft</span>'
+      : (isUnlisted ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">Unlisted</span>' : '');
+
+    return `
     <div class="surface-card p-3 flex items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="w-10 h-14 rounded-lg overflow-hidden bg-app-surface flex-shrink-0">
-          ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" class="w-full h-full object-cover">` : ''}
+        <div class="w-10 h-14 rounded-lg overflow-hidden bg-app-surface flex-shrink-0 border border-app-border">
+          ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" class="w-full h-full object-cover" alt="Cover">` : '<div class="w-full h-full flex items-center justify-center text-[10px] text-app-muted">PDF</div>'}
         </div>
         <div class="truncate">
-          <h5 class="font-display font-semibold text-xs text-white truncate">${escapeHtml(b.title)}</h5>
+          <div class="flex items-center gap-1.5">
+            <h5 class="font-display font-semibold text-xs text-white truncate">${escapeHtml(b.title)}</h5>
+            ${statusPill}
+          </div>
           <span class="text-[10px] text-app-muted">${formatLabel(b.contentType)} • ${formatCompactNum(b.viewCount || 0)} reads</span>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="openBookDetail('${b.id}')" class="btn-secondary text-[11px] px-2.5 py-1">View</button>
-        <button onclick="deleteAuthorPublication('${b.id}')" class="text-xs text-red-400 p-1 hover:text-red-300">✕</button>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button onclick="openBookDetail('${b.id}')" class="btn-secondary text-[11px] px-2 py-1">View</button>
+        <button onclick="openEditPublication('${b.id}')" class="btn-secondary text-[11px] px-2 py-1 text-app-primary">Edit</button>
+        <button onclick="deleteAuthorPublication('${b.id}')" title="Delete work" class="w-6 h-6 rounded bg-red-500/10 text-xs text-red-400 hover:text-red-300 flex items-center justify-center">✕</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+// ── Edit Publication Workflow ────────────────────────────
+async function openEditPublication(bookId) {
+  let book = (APP_STATE.allBooks || []).find(b => b.id === bookId);
+  if (!book) {
+    try {
+      const snap = await db.collection('books').doc(bookId).get();
+      if (snap.exists) book = { id: snap.id, ...snap.data() };
+    } catch(e) {}
+  }
+  if (!book) { showToast('Publication not found'); return; }
+
+  APP_STATE.editingBookId = bookId;
+  switchPage('publish');
+
+  // Pre-populate fields
+  document.getElementById('publishTitleInput').value = book.title || '';
+  document.getElementById('publishSynopsisInput').value = book.description || '';
+  document.getElementById('publishStatusSelect').value = book.status || 'ongoing';
+  document.getElementById('publishVisibilitySelect').value = book.visibility || 'public';
+
+  // Format selection
+  if (book.contentType) selectPublishFormat(book.contentType);
+
+  // Cover preview
+  if (book.coverUrl) {
+    const preview = document.getElementById('coverUploadPreview');
+    const placeholder = document.getElementById('coverUploadPlaceholder');
+    preview.src = book.coverUrl;
+    preview.classList.remove('hidden');
+    placeholder.classList.add('hidden');
+  }
+
+  // Pre-load editions
+  APP_STATE.publishEditions = [];
+  const edRows = document.getElementById('editionRows');
+  edRows.innerHTML = '';
+
+  const eds = Array.isArray(book.languages) && book.languages.length ? book.languages : [{
+    language: book.language || 'Standard',
+    storageProvider: book.storageProvider || 'storage',
+    fileUrl: book.fileUrl || '',
+    driveFileId: book.driveFileId || '',
+    fileName: `${book.title}.pdf`
+  }];
+
+  eds.forEach((ed, idx) => {
+    addEditionRow();
+    const langSelect = document.getElementById(`edLang-${idx}`);
+    if (langSelect) langSelect.value = ed.language || 'Standard';
+    if (ed.driveFileId) {
+      APP_STATE.publishEditions[idx].driveFile = {
+        fileId: ed.driveFileId,
+        fileName: ed.fileName || 'Google Drive Document.pdf',
+        size: ed.fileSize || 0
+      };
+      APP_STATE.publishEditions[idx].storageProvider = 'drive';
+      const label = document.getElementById(`edDriveLabel-${idx}`);
+      if (label) label.textContent = `Attached: ${ed.fileName || 'Drive PDF'}`;
+    } else if (ed.fileUrl) {
+      APP_STATE.publishEditions[idx].existingUrl = ed.fileUrl;
+      APP_STATE.publishEditions[idx].storageProvider = 'storage';
+      const label = document.getElementById(`edFileLabel-${idx}`);
+      if (label) label.textContent = `Existing file: ${ed.fileName || 'manuscript.pdf'}`;
+    }
+  });
+
+  const submitBtn = document.getElementById('publishSubmitBtn');
+  if (submitBtn) submitBtn.textContent = 'Save Changes';
+  showToast(`Editing "${book.title}"`);
 }
 
 async function deleteAuthorPublication(id) {
@@ -4822,7 +4989,7 @@ async function openBookDetail(bookId) {
   document.getElementById('detailSynopsis').textContent = book.description || 'No synopsis provided.';
   document.getElementById('detailFormatTag').textContent = formatLabel(book.contentType);
   document.getElementById('detailReadsCount').textContent = `${formatCompactNum(book.viewCount || 0)} reads`;
-  document.getElementById('detailRating').textContent = `★ ${book.avgRating ? book.avgRating.toFixed(1) : '4.8'}`;
+  document.getElementById('detailRating').textContent = (book.avgRating && book.avgRating > 0) ? `★ ${book.avgRating.toFixed(1)}` : 'Unrated';
 
   // Show file info metadata if available
   const detailMeta = document.getElementById('detailFileMeta');
@@ -5568,35 +5735,14 @@ function renderManhwaReaderFallback(book) {
 }
 
 // ────────────────────────────────────────────────────────
-// ANDROID BACK BUTTON HANDLER
+// ANDROID BACK BUTTON HANDLER (CONNECTED TO CONTROLLER)
 // ────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.addEventListener('backbutton', (e) => {
-    e.preventDefault();
-    // If reader is open, close reader
-    const readerModal = document.getElementById('readerModal');
-    if (readerModal && readerModal.classList.contains('open')) {
-      closeReaderModal();
-      if (APP_STATE.selectedBook) openBookDetail(APP_STATE.selectedBook.id);
-      return;
-    }
-    // If book detail is open, close it
-    const bookDetail = document.getElementById('bookDetailModal');
-    if (bookDetail && bookDetail.classList.contains('open')) {
-      closeBookDetailModal();
-      return;
-    }
-    // If auth modal is open, close it
-    const authModal = document.getElementById('authModal');
-    if (authModal && authModal.classList.contains('open')) {
-      closeAuthModal?.();
-      return;
-    }
-    // Otherwise go home if not already there
-    if (APP_STATE.activePage !== 'home') {
-      switchPage('home');
-    }
-  }, false);
+  document.addEventListener('backbutton', (e) => NavigationController.handleBackButton(e), false);
+  // Also register Capacitor native backButton listener if available
+  if (window.Capacitor?.Plugins?.App?.addListener) {
+    window.Capacitor.Plugins.App.addListener('backButton', () => NavigationController.handleBackButton(null));
+  }
 });
 
 // ────────────────────────────────────────────────────────

@@ -32,7 +32,7 @@ Add these secrets:
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://gzwpfvhmjweeydiwdsga.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_APwu-OfPQmtnj-f-pwxfZw_OxiwM8A1` |
-| `NEXT_PUBLIC_IMGBB_API_KEY` | `a9985ccf572a0e05bce242e27cf8be33` |
+| `NEXT_PUBLIC_IMGBB_API_KEY` | *(migrated to Firebase Storage)* |
 | `VERCEL_TOKEN` | *(see below)* |
 | `VERCEL_ORG_ID` | *(see below)* |
 | `VERCEL_PROJECT_ID` | *(see below)* |

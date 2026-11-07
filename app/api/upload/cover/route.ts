@@ -27,7 +27,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.IMGBB_API_KEY || 'a9985ccf572a0e05bce242e27cf8be33';
+    const apiKey = process.env.IMGBB_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Image service unconfigured. Use Firebase Storage.' }, { status: 500 });
+    }
 
     // Convert file to base64
     const buffer = await file.arrayBuffer();
