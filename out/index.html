@@ -21,8 +21,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 
-  <!-- PDF.js Reader -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- PDF.js Reader (Local Bundled with CDN Fallback) -->
+  <script src="js/pdf.min.js"></script>
+  <script>
+    if (typeof pdfjsLib === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>');
+    }
+  </script>
 
   <!-- NOTE: Google Identity Services (gsi/client) intentionally removed.
        It causes Error 400: origin_mismatch in Android Capacitor WebView because
@@ -89,6 +94,35 @@
     }
     .safe-top { padding-top: var(--sat); }
     .safe-bottom { padding-bottom: var(--sab); }
+
+    /* Offline Resilient Utility Fallbacks (Ensures UI renders without CDN) */
+    .hidden { display: none !important; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .flex-1 { flex: 1 1 0%; }
+    .flex-shrink-0 { flex-shrink: 0; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-1 { gap: 4px; }
+    .gap-1\.5 { gap: 6px; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .gap-4 { gap: 16px; }
+    .w-full { width: 100%; }
+    .h-full { height: 100%; }
+    .min-w-0 { min-width: 0; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .text-center { text-align: center; }
+    .grid { display: grid; }
+    .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .fixed { position: fixed; }
+    .overflow-hidden { overflow: hidden; }
+    .overflow-x-auto { overflow-x: auto; }
+    .overflow-y-auto { overflow-y: auto; }
 
     /* Luxury Editorial Card Surfaces with GPU Acceleration */
     .surface-card {
@@ -636,6 +670,16 @@
     </div>
   </div>
 </div>
+<script>
+  // Emergency Startup Watchdog: If JavaScript or network hangs, guarantee splash dismiss within 3.2s
+  window.__novelix_emergency_timer = setTimeout(function() {
+    var sp = document.getElementById('splashScreen');
+    if (sp && !sp.classList.contains('hide')) {
+      sp.classList.add('hide');
+      console.warn('[NOVELIX Watchdog] Emergency splash dismiss triggered.');
+    }
+  }, 3200);
+</script>
 
 <!-- ════════════════════════════════════════════════════════
      2. EDITORIAL GLASS HEADER
@@ -2060,29 +2104,30 @@ const IMGBB_KEY = '';
 // Default storage quota per user in bytes (500 MB)
 const DEFAULT_QUOTA_BYTES = 500 * 1024 * 1024;
 
-// Initialize Firebase App
-let auth, db, storage, messaging, functions;
+// Initialize Firebase App defensively
+let auth = null, db = null, storage = null, messaging = null, functions = null;
 try {
-  if (!firebase.apps.length) {
-    firebase.initializeApp(FIREBASE_CONFIG);
-  }
-  auth = firebase.auth();
-  db = firebase.firestore();
-  storage = firebase.storage();
-  try {
-    functions = firebase.app().functions('us-central1');
-  } catch(fErr) {
-    try { functions = firebase.functions('us-central1'); } catch(e) {}
-  }
-  try {
-    if (firebase.messaging.isSupported()) {
-      messaging = firebase.messaging();
+  if (typeof firebase !== 'undefined') {
+    if (firebase.apps && !firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
     }
-  } catch(e) {}
-
-  db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    if (typeof firebase.auth === 'function') auth = firebase.auth();
+    if (typeof firebase.firestore === 'function') db = firebase.firestore();
+    if (typeof firebase.storage === 'function') storage = firebase.storage();
+    if (typeof firebase.app === 'function') {
+      try { functions = firebase.app().functions('us-central1'); } catch(fErr) {
+        try { functions = firebase.functions('us-central1'); } catch(e) {}
+      }
+    }
+    if (db && typeof db.enablePersistence === 'function') {
+      db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    }
+    console.log('[NOVELIX] Firebase initialized successfully.');
+  } else {
+    console.warn('[NOVELIX] Firebase SDK unavailable — offline fallback mode active.');
+  }
 } catch(err) {
-  console.warn('Firebase init warning:', err);
+  console.warn('[NOVELIX] Firebase init warning:', err);
 }
 
 // ────────────────────────────────────────────────────────
@@ -2208,48 +2253,105 @@ const NavigationController = {
 };
 
 // ────────────────────────────────────────────────────────
-// LIFECYCLE INITIALIZATION
+// STARTUP CONTROLLER & WATCHDOG SYSTEM
 // ────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
-  NavigationController.init();
-  setupLogoTerminalTrigger();
-  setupOnlineOfflineListeners();
-  addEditionRow();
-  showInitialHomeSkeletons();
+const StartupController = {
+  isInitialized: false,
+  watchdogTimer: null,
 
-  // Firebase Auth Redirect Resolution (For Android Google Sign-In)
-  if (auth) {
-    auth.getRedirectResult().then(async (result) => {
-      if (result && result.user) {
-        showToast('Google authentication successful');
-        closeAuthModal();
-      }
-    }).catch((err) => {
-      console.warn('Redirect auth notice:', err);
-      if (err && err.code && err.code !== 'auth/null-user') {
-        showToast(err.message);
-      }
-    });
+  init() {
+    this.startWatchdog();
 
-    // Observer
-    auth.onAuthStateChanged(async (firebaseUser) => {
-      APP_STATE.user = firebaseUser;
-      if (firebaseUser) {
-        await handleUserAuthenticated(firebaseUser);
+    try {
+      // 1. Navigation state controller: force close all modals & enforce clean Home
+      NavigationController.init();
+
+      // 2. Setup system triggers & listeners
+      setupLogoTerminalTrigger();
+      setupOnlineOfflineListeners();
+      addEditionRow();
+      showInitialHomeSkeletons();
+
+      // 3. Guarantee Home view is visible
+      switchPage('home');
+
+      // 4. Initialize Data feeds (non-blocking)
+      if (typeof db !== 'undefined' && db) {
+        try { startFirestoreBooksFeed(); } catch(dberr) { console.warn('Firestore feed note:', dberr); }
       } else {
-        handleUserLoggedOut();
+        loadBooksFallbackFeed();
       }
-    });
-  }
 
-  // Real-Time Firestore Synchronization
-  startFirestoreBooksFeed();
+      // 5. Setup Firebase Authentication Observer
+      this.initAuth();
 
-  // Dismiss Splash smoothly once UI is loaded
-  setTimeout(() => {
+      // 6. Dismiss Splash Screen safely
+      this.dismissSplash();
+    } catch(err) {
+      console.error('[NOVELIX Startup] Critical initialization error:', err);
+      this.handleStartupFailure(err);
+    }
+  },
+
+  initAuth() {
+    if (!auth) return;
+    try {
+      auth.getRedirectResult().then((result) => {
+        if (result && result.user) {
+          showToast('Google authentication successful');
+          closeAuthModal();
+        }
+      }).catch((err) => {
+        if (err && err.code && err.code !== 'auth/null-user') {
+          showToast(err.message);
+        }
+      });
+
+      auth.onAuthStateChanged(async (firebaseUser) => {
+        APP_STATE.user = firebaseUser;
+        if (firebaseUser) {
+          await handleUserAuthenticated(firebaseUser);
+        } else {
+          handleUserLoggedOut();
+        }
+      });
+    } catch(e) {
+      console.warn('Auth observer note:', e);
+    }
+  },
+
+  dismissSplash() {
+    if (this.isInitialized) return;
+    this.isInitialized = true;
+    if (this.watchdogTimer) clearTimeout(this.watchdogTimer);
+    if (window.__novelix_splash_timer) clearTimeout(window.__novelix_splash_timer);
+
     const splash = document.getElementById('splashScreen');
-    if (splash) splash.classList.add('hide');
-  }, 750);
+    if (splash) {
+      splash.classList.add('hide');
+      setTimeout(() => {
+        try { splash.remove(); } catch(e) {}
+      }, 700);
+    }
+    console.log('[NOVELIX Startup] Application successfully started.');
+  },
+
+  startWatchdog() {
+    this.watchdogTimer = setTimeout(() => {
+      console.warn('[NOVELIX Watchdog] Watchdog fired — guaranteeing UI visibility.');
+      this.dismissSplash();
+    }, 2800);
+  },
+
+  handleStartupFailure(err) {
+    this.dismissSplash();
+    showToast('Started in offline mode');
+  }
+};
+
+// Main DOM entrypoint
+document.addEventListener('DOMContentLoaded', () => {
+  StartupController.init();
 });
 
 // ────────────────────────────────────────────────────────
@@ -3896,7 +3998,8 @@ async function decideVerification(reqId, targetUid, decision) {
 }
 
 async function loadAdminPublicationsList() {
-  const table = document.getElementById('adminPublicationsTable');
+  const table = document.getElementById('adminPublicationsTable') || document.getElementById('adminBooksTable');
+  if (!table) return;
   table.innerHTML = APP_STATE.allBooks.map(b => `
     <div class="surface-card p-3 flex items-center justify-between">
       <div class="truncate">
@@ -4636,7 +4739,7 @@ async function renderLibrarySubtab(tab) {
               </div>
             </div>
           </div>
-          <button onclick="directResumeBook('${escapeHtml(item.id)}', ${item.page || 1}, '${escapeHtml(item.selectedEditionLanguage || \'\')}', event)" class="btn-primary text-[11px] px-3 py-1.5 flex-shrink-0 font-medium">Resume</button>
+          <button data-action="resume" data-id="${escapeHtml(item.id)}" data-page="${item.page || 1}" data-lang="${escapeHtml(item.selectedEditionLanguage || '')}" onclick="handleResumeButtonClick(this, event)" class="btn-primary text-[11px] px-3 py-1.5 flex-shrink-0 font-medium">Resume</button>
         </div>
       `).join('');
     } else if (tab === 'history') {
@@ -4733,6 +4836,42 @@ async function resumeReadingProgressBook(bookId, page, editionLanguage) {
   if (page && page > 1) {
     const startBtn = document.getElementById('btnStartReading');
     if (startBtn) startBtn.textContent = `Continue from Page ${page}`;
+  }
+}
+
+// Delegated click handler for library resume buttons
+function handleResumeButtonClick(btn, event) {
+  if (event) event.stopPropagation();
+  const bookId = btn.dataset.id;
+  const page = parseInt(btn.dataset.page || '1', 10);
+  const lang = btn.dataset.lang || '';
+  directResumeBook(bookId, page, lang, event);
+}
+
+// Map Firebase Authentication errors to human-friendly feedback
+function mapFirebaseAuthError(error) {
+  if (!error) return 'Authentication error';
+  const code = error.code || '';
+  switch (code) {
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Invalid email or password. Please verify your credentials.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email address already exists. Please sign in instead.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/weak-password':
+      return 'Password is too short. Please choose at least 6 characters.';
+    case 'auth/network-request-failed':
+      return 'Network connection issue. Please check your internet connection.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Access is temporarily disabled; try again later.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Sign-in window was closed.';
+    default:
+      return error.message || 'Authentication error';
   }
 }
 
@@ -5170,13 +5309,25 @@ function closeReaderModal() {
 async function loadPdfDocumentForReader(book, edition, targetPage) {
   const loadingOverlay = document.getElementById('readerLoadingOverlay');
   const errorOverlay = document.getElementById('readerErrorOverlay');
-  const progressBar = document.getElementById('readerLoadingProgress');
-  const percentText = document.getElementById('readerLoadingPercent');
-  const statusText = document.getElementById('readerLoadingStatus');
   const errorTitle = document.getElementById('readerErrorTitle');
   const errorMsg = document.getElementById('readerErrorMessage');
   const errorCodeBadge = document.getElementById('readerErrorCodeBadge');
+  const progressBar = document.getElementById('readerLoadingProgress');
+  const percentText = document.getElementById('readerLoadingPercent');
+  const statusText = document.getElementById('readerLoadingStatus');
   const reconnectDriveBtn = document.getElementById('readerReconnectDriveBtn');
+
+  if (typeof pdfjsLib === 'undefined') {
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    if (errorOverlay) errorOverlay.classList.remove('hidden');
+    if (errorTitle) errorTitle.textContent = 'PDF Reader Offline';
+    if (errorMsg) errorMsg.textContent = 'The PDF rendering library is unavailable offline. Please connect to the internet.';
+    if (errorCodeBadge) {
+      errorCodeBadge.textContent = 'ERR_PDF_LIB_OFFLINE';
+      errorCodeBadge.classList.remove('hidden');
+    }
+    return;
+  }
 
   loadingOverlay.classList.remove('hidden');
   errorOverlay.classList.add('hidden');
