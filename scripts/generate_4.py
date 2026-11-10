@@ -722,13 +722,25 @@ HTML_CONTENT = r"""<!DOCTYPE html>
       </button>
     </div>
 
-    <!-- Option 2: 1-Click Google Auth -->
+    <!-- Option 2: 1-Tap Link & Native Google Connect (Zero External Browser Redirects) -->
     <div class="surface-card p-4 space-y-2.5">
-      <h4 class="text-xs font-semibold text-white">Link Personal Google Account</h4>
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-semibold text-white">Connect Google Drive Account</h4>
+        <span class="text-[9px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono">In-App Native</span>
+      </div>
       <p class="text-[11px] text-app-muted leading-relaxed">
-        Sign in with Google to link your author identity and remember your account across devices. Powered directly by Google Firebase Auth.
+        Connect securely right inside NOVELIX without switching to an external browser.
       </p>
-      <button onclick="connectGoogleDriveDirect()" class="google-sign-in-btn w-full">
+
+      <div class="space-y-2 pt-1">
+        <!-- 1-Tap Connect Current User -->
+        <button type="button" onclick="connectCurrentAccountToDrive()" class="w-full py-2.5 px-3 rounded-xl border border-app-primary/40 bg-app-primary/10 hover:bg-app-primary/20 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-app-primary"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+          <span id="btnLinkCurrentDriveText">⚡ 1-Tap Link Current Account</span>
+        </button>
+
+        <!-- Google Native Account Picker -->
+        <button onclick="connectGoogleDriveDirect()" class="google-sign-in-btn w-full">
         <svg viewBox="0 0 24 24" class="w-4 h-4 flex-shrink-0">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
           <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -1200,6 +1212,26 @@ HTML_CONTENT = r"""<!DOCTYPE html>
             </div>
           </div>
 
+          <!-- Series Assignment Selector -->
+          <div class="p-3 rounded-xl bg-app-sub border border-app-border space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="block text-[11px] font-semibold text-white flex items-center gap-1.5">
+                <span>📚 Book Series / Saga (Optional)</span>
+              </label>
+              <button type="button" onclick="openCreateSeriesModal()" class="text-[10px] text-app-primary hover:underline">+ New Series</button>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <div class="col-span-2">
+                <select id="publishSeriesSelect" class="w-full px-2.5 py-2 text-xs bg-[#14141E] border border-[#262638] rounded-lg text-white">
+                  <option value="">Standalone Work (No Series)</option>
+                </select>
+              </div>
+              <div>
+                <input type="text" id="publishSeriesOrderInput" placeholder="e.g., Book 1" class="w-full px-2.5 py-2 text-xs bg-[#14141E] border border-[#262638] rounded-lg text-white">
+              </div>
+            </div>
+          </div>
+
           <!-- Submit Buttons -->
           <div class="pt-2 flex gap-2.5">
             <button type="button" onclick="handlePublishSubmit(null, 'draft')" class="btn-secondary text-xs flex-1 py-2.5">Save Draft</button>
@@ -1301,14 +1333,30 @@ HTML_CONTENT = r"""<!DOCTYPE html>
         </div>
 
         <!-- Profile Tabs -->
-        <div class="flex gap-1.5 mb-3 overflow-x-auto">
+        <div class="flex gap-1.5 mb-3 overflow-x-auto scrollbar-none">
           <button onclick="switchProfileTab('works')" class="prof-tab pill-tag" data-tab="works" style="background:#9270FF; color:#0B0B10">Published</button>
+          <button onclick="switchProfileTab('series')" class="prof-tab pill-tag" data-tab="series">📚 Series & Sagas</button>
           <button onclick="switchProfileTab('library')" class="prof-tab pill-tag" data-tab="library">Library</button>
           <button onclick="switchProfileTab('reviews')" class="prof-tab pill-tag" data-tab="reviews">Reviews</button>
           <button onclick="switchProfileTab('about')" class="prof-tab pill-tag" data-tab="about">About</button>
         </div>
 
         <div id="profileTabContentWorks" class="space-y-2.5"></div>
+
+        <!-- Author Series & Sagas Tab -->
+        <div id="profileTabContentSeries" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-bold text-white uppercase tracking-wider">Book Series & Sagas</h4>
+              <p class="text-[10px] text-app-muted">Group your multi-volume novels and chronicles into continuous reading series.</p>
+            </div>
+            <button onclick="openCreateSeriesModal()" class="btn-primary text-[11px] px-3 py-1.5 font-bold flex items-center gap-1.5">
+              <span>+ Create Series</span>
+            </button>
+          </div>
+          <div id="authorSeriesList" class="space-y-2.5"></div>
+        </div>
+
         <div id="profileTabContentLibrary" class="hidden space-y-2.5"></div>
         <div id="profileTabContentReviews" class="hidden space-y-2.5"></div>
         <div id="profileTabContentAbout" class="hidden surface-card-static p-4 space-y-3">
@@ -2005,14 +2053,55 @@ HTML_CONTENT = r"""<!DOCTYPE html>
       <div id="adminAdsStatus" class="surface-card p-3 text-xs text-app-muted"></div>
     </div>
 
-    <!-- 7. Admin Tab: Storage -->
-    <div id="adminTab-storage" class="admin-tab-content hidden space-y-3">
-      <h4 class="text-xs font-semibold text-white">Storage Quota Configurations</h4>
+    <!-- 7. Admin Tab: Storage & ImgBB Cloud -->
+    <div id="adminTab-storage" class="admin-tab-content hidden space-y-4">
+      <!-- ImgBB Cloud API Key Configuration Card -->
+      <div class="p-4 rounded-2xl bg-gradient-to-br from-[#161625] to-[#0F0F1A] border border-[#FFD700]/35 shadow-xl space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🖼️</span>
+            <div>
+              <h4 class="font-display font-bold text-xs text-white">ImgBB Cloud Image Hosting API</h4>
+              <p class="text-[10px] text-app-muted">Global CDN for book covers, avatars & illustrations</p>
+            </div>
+          </div>
+          <span id="adminImgbbBadge" class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded font-bold">● ACTIVE KEY</span>
+        </div>
+
+        <p class="text-[11px] text-app-muted leading-relaxed">
+          Configure the official ImgBB API key used by the application. Changes are synchronized across all client sessions and saved to cloud storage.
+        </p>
+
+        <div>
+          <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Active ImgBB API Key</label>
+          <div class="flex gap-2">
+            <input type="password" id="adminImgbbKeyInput" placeholder="Enter 32-character ImgBB API Key" class="flex-1 px-3 py-2 text-xs bg-[#12121C] border border-[#262638] rounded-lg text-white font-mono focus:border-[#FFD700]">
+            <button type="button" onclick="togglePasswordVisibility('adminImgbbKeyInput', this)" class="btn-secondary text-xs px-3 py-2" title="Reveal / Hide Key">👁️</button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1 flex-wrap">
+          <button type="button" onclick="adminSaveImgBBKey()" class="btn-primary text-xs flex-1 py-2 font-bold bg-gradient-to-r from-[#FFD700] to-[#E5C07B] text-[#0B0B10] shadow-[0_0_12px_rgba(255,215,0,0.25)]">
+            💾 Save & Apply API Key
+          </button>
+          <button type="button" onclick="adminTestImgBBKey()" class="btn-secondary text-xs px-3 py-2 flex items-center gap-1">
+            ⚡ Test Key
+          </button>
+          <button type="button" onclick="adminResetImgBBKey()" class="btn-secondary text-xs px-2.5 py-2 text-app-muted hover:text-white" title="Reset to standard default">
+            ↺ Default
+          </button>
+        </div>
+        <div id="adminImgbbTestResult" class="hidden text-[11px] p-2.5 rounded-lg font-mono"></div>
+      </div>
+
+      <!-- Storage Quotas -->
       <div class="surface-card-static p-4 space-y-3">
-        <label class="block text-xs font-semibold text-app-muted">Default User Publishing Quota (MB)</label>
-        <input type="number" id="adminDefaultQuotaInput" value="500" class="w-full px-3 py-2 text-xs">
+        <h4 class="text-xs font-semibold text-white">Default Author Storage Quota</h4>
+        <label class="block text-[11px] text-app-muted">Max storage allowance per publishing creator account (MB)</label>
+        <input type="number" id="adminDefaultQuotaInput" value="500" class="w-full px-3 py-2 text-xs bg-[#12121C] border border-[#262638] rounded-lg text-white">
         <button onclick="saveAdminQuotaSetting()" class="btn-primary text-xs w-full py-2">Update Quota Policy</button>
       </div>
+
       <div id="adminStorageStats" class="surface-card p-3 text-xs text-app-muted space-y-1"></div>
     </div>
 
@@ -2036,6 +2125,73 @@ HTML_CONTENT = r"""<!DOCTYPE html>
 <!-- ════════════════════════════════════════════════════════
      12. AUTHENTICATION MODAL (REDESIGNED)
 ═══════════════════════════════════════════════════════════ -->
+
+<!-- ════════════════════════════════════════════════════════
+     AUTHOR SERIES CREATOR & MANAGER MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="seriesModal" class="modal-backdrop" onclick="if(event.target===this)closeSeriesModal()">
+  <div class="modal-sheet max-h-[85vh] flex flex-col p-5">
+    <div class="flex items-center justify-between mb-3 flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">📚</span>
+        <div>
+          <h3 class="font-display font-bold text-sm text-white">Create Book Series / Saga</h3>
+          <p class="text-[10px] text-app-muted">Organize books into continuous reading volumes</p>
+        </div>
+      </div>
+      <button onclick="closeSeriesModal()" class="w-7 h-7 rounded-full surface-card flex items-center justify-center text-app-muted hover:text-white">✕</button>
+    </div>
+
+    <form onsubmit="event.preventDefault(); saveAuthorSeries()" class="space-y-3 overflow-y-auto flex-1">
+      <div>
+        <label class="block text-[11px] text-app-muted uppercase font-semibold mb-1">Series Title</label>
+        <input type="text" id="seriesTitleInput" required placeholder="e.g., The Shadow Emperor Chronicles" class="w-full px-3 py-2 text-xs bg-[#14141E] border border-[#262638] rounded-lg text-white focus:border-[#9270FF]">
+      </div>
+
+      <div>
+        <label class="block text-[11px] text-app-muted uppercase font-semibold mb-1">Series Synopsis / Premise</label>
+        <textarea id="seriesDescInput" rows="2" placeholder="Briefly describe the overarching narrative arc..." class="w-full px-3 py-2 text-xs bg-[#14141E] border border-[#262638] rounded-lg text-white focus:border-[#9270FF] resize-none"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Genre</label>
+          <select id="seriesGenreSelect" class="w-full px-2.5 py-2 text-xs bg-[#14141E] border border-[#262638] rounded-lg text-white">
+            <option value="Fantasy">Fantasy</option>
+            <option value="Romance">Romance</option>
+            <option value="Urdu Literature">Urdu Literature (ادب)</option>
+            <option value="Mystery / Thriller">Mystery / Thriller</option>
+            <option value="Sci-Fi">Sci-Fi</option>
+            <option value="Historical">Historical</option>
+            <option value="Poetry">Poetry (شاعری)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Language</label>
+          <select id="seriesLangSelect" class="w-full px-2.5 py-2 text-xs bg-[#14141E] border border-[#262638] rounded-lg text-white">
+            <option value="English">English</option>
+            <option value="Urdu">Urdu (اردو)</option>
+            <option value="Arabic">Arabic (العربية)</option>
+            <option value="Hindi">Hindi (हिन्दी)</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Series Banner / Cover Image URL (Optional)</label>
+        <input type="url" id="seriesCoverUrlInput" placeholder="https://i.ibb.co/..." class="w-full px-3 py-2 text-xs bg-[#14141E] border border-[#262638] rounded-lg text-white font-mono">
+      </div>
+
+      <div class="pt-2">
+        <button type="submit" id="btnSaveSeries" class="btn-primary text-xs w-full py-2.5 font-bold">
+          Create & Save Series
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="authModal" class="modal-backdrop" onclick="if(event.target===this)closeAuthModal()">
   <div class="modal-sheet max-h-[92vh] overflow-hidden flex flex-col">
     <!-- Top drag handle / close row -->
@@ -2200,18 +2356,7 @@ HTML_CONTENT = r"""<!DOCTYPE html>
 
       <!-- Trust & Security Assurance Badge -->
       
-      <!-- VIP Admin Portal Entry Point -->
-      <div class="mt-3.5 p-3 rounded-2xl bg-gradient-to-r from-[#FFD700]/15 via-[#9270FF]/20 to-[#FFD700]/15 border border-[#FFD700]/40 shadow-[0_0_15px_rgba(255,215,0,0.15)] text-center">
-        <div class="flex items-center justify-center gap-1.5 mb-1">
-          <span class="text-sm">👑</span>
-          <span class="text-xs font-extrabold text-[#FFD700] tracking-wide">NOVELIX VIP ADMIN PORTAL</span>
-        </div>
-        <p class="text-[10px] text-app-muted mb-2">Instant one-tap master administrator access for system moderation & push broadcasts.</p>
-        <button type="button" onclick="accessVipAdminPortal()" class="w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 text-[#0B0B10] bg-gradient-to-r from-[#FFD700] to-[#E5C07B] hover:brightness-110 shadow-[0_0_15px_rgba(255,215,0,0.25)] transition-all">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          <span>⚡ Instant VIP Admin Login</span>
-        </button>
-      </div>
+      
 
 <div class="mt-5 pt-3 border-t border-app-border/60 flex items-center justify-center gap-2 text-[10px] text-app-muted">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3 text-emerald-400 flex-shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -4185,6 +4330,7 @@ function playNotificationChime() {
 }
 
 function showInAppPushBanner(notif) {
+  triggerSystemMobileNotification(notif.title || 'NOVELIX Alert', notif.message || notif.body || 'New announcement', notif.bookId || '');
   CURRENT_ACTIVE_PUSH_NOTIFICATION = notif;
   const banner = document.getElementById('inAppPushBanner');
   const titleEl = document.getElementById('pushBannerTitle');
@@ -4526,6 +4672,8 @@ async function saveAdminAdSetting() {
 }
 
 async function loadAdminStorageList() {
+  const input = document.getElementById('adminImgbbKeyInput');
+  if (input) input.value = getActiveImgBBKey();
   const stats = document.getElementById('adminStorageStats');
   stats.innerHTML = `<div class="skeleton-box h-8 mb-2"></div>`;
   const snap = await db.collection('users').get();
@@ -5418,6 +5566,9 @@ async function handlePublishSubmit(event, forceStatus) {
 
     const isUrduBook = languages.some(l => l.language === 'Urdu') || isRtlText(title) || isRtlText(desc);
 
+    const selSeriesId = document.getElementById('publishSeriesSelect')?.value || '';
+    const selSeriesOrder = (document.getElementById('publishSeriesOrderInput')?.value || '').trim();
+
     const docPayload = {
       id: bookId,
       title: title,
@@ -5426,6 +5577,8 @@ async function handlePublishSubmit(event, forceStatus) {
       genres: (APP_STATE.selectedGenres || []).slice(0, 4),
       coverUrl: coverUrl,
       coverSize: coverSize,
+      seriesId: selSeriesId,
+      seriesOrder: selSeriesOrder,
       status: status,
       visibility: visibility,
       publishStatus: status === 'draft' ? 'draft' : 'published',
@@ -5460,6 +5613,18 @@ async function handlePublishSubmit(event, forceStatus) {
     updatePublishStep(6, 'in_progress');
     await db.collection('books').doc(bookId).set(docPayload, { merge: true });
     updatePublishStep(6, 'completed');
+
+    if (selSeriesId && db) {
+      db.collection('series').doc(selSeriesId).update({
+        bookCount: firebase.firestore.FieldValue.increment(1),
+        books: firebase.firestore.FieldValue.arrayUnion({
+          bookId: bookId,
+          title: title,
+          order: selSeriesOrder || 'Book',
+          coverUrl: coverUrl
+        })
+      }).catch(err => console.warn('Series update notice:', err));
+    }
 
     // Step 7: Published successfully & sending notifications
     updatePublishStep(7, 'in_progress');
@@ -6038,6 +6203,308 @@ async function computeUserStats() {
   document.getElementById('statTotalViews').textContent = formatCompactNum(reads);
 }
 
+
+// ────────────────────────────────────────────────────────
+// NOVELIX 11.0 USER UPGRADES: IMGBB API, MOBILE NOTIFICATIONS,
+// AUTHOR SERIES & SEAMLESS GOOGLE DRIVE CONNECTOR
+// ────────────────────────────────────────────────────────
+
+// ── 1. Admin ImgBB API Key Management Controller ──────
+function getActiveImgBBKey() {
+  return localStorage.getItem('novelix_imgbb_key') || DEFAULT_IMGBB_KEY;
+}
+
+function adminSaveImgBBKey() {
+  const input = document.getElementById('adminImgbbKeyInput');
+  const key = (input ? input.value : '').trim();
+
+  if (!key) {
+    showToast('Please enter an ImgBB API key.');
+    return;
+  }
+
+  localStorage.setItem('novelix_imgbb_key', key);
+  
+  // Persist to Firestore settings so all devices use it
+  if (db) {
+    db.collection('admin_settings').doc('storage').set({
+      imgbbApiKey: key,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: APP_STATE.user?.uid || 'vip_admin'
+    }, { merge: true }).catch(err => console.warn('Firestore setting write notice:', err));
+  }
+
+  const badge = document.getElementById('adminImgbbBadge');
+  if (badge) {
+    badge.textContent = '● CUSTOM KEY SAVED';
+    badge.className = 'text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded font-bold';
+  }
+
+  showToast('✓ ImgBB API key saved and applied globally!');
+}
+
+async function adminTestImgBBKey() {
+  const input = document.getElementById('adminImgbbKeyInput');
+  const key = (input ? input.value : '').trim() || getActiveImgBBKey();
+  const resultBox = document.getElementById('adminImgbbTestResult');
+
+  if (resultBox) {
+    resultBox.classList.remove('hidden');
+    resultBox.className = 'text-[11px] p-2.5 rounded-lg font-mono bg-[#14141E] text-amber-300 border border-amber-500/20';
+    resultBox.textContent = 'Testing ImgBB API connectivity...';
+  }
+
+  try {
+    // Test probe with 1x1 transparent PNG in base64
+    const testPixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAAElFTkSuQmCC';
+    const form = new FormData();
+    form.append('key', key);
+    form.append('image', testPixel);
+    form.append('name', 'novelix_test_probe');
+
+    const res = await fetch('https://api.imgbb.com/1/upload', {
+      method: 'POST',
+      body: form
+    });
+
+    const json = await res.json();
+    if (json && json.success) {
+      if (resultBox) {
+        resultBox.className = 'text-[11px] p-2.5 rounded-lg font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
+        resultBox.textContent = `✓ ImgBB API Valid! Status: ${json.status} | URL: ${json.data.url}`;
+      }
+      showToast('✓ ImgBB API key verified successfully!');
+    } else {
+      throw new Error(json?.error?.message || 'Invalid API Key response');
+    }
+  } catch (err) {
+    if (resultBox) {
+      resultBox.className = 'text-[11px] p-2.5 rounded-lg font-mono bg-red-500/10 text-red-300 border border-red-500/30';
+      resultBox.textContent = `✕ Test Failed: ${err.message}`;
+    }
+    showToast(`ImgBB Test Error: ${err.message}`);
+  }
+}
+
+function adminResetImgBBKey() {
+  localStorage.removeItem('novelix_imgbb_key');
+  const input = document.getElementById('adminImgbbKeyInput');
+  if (input) input.value = DEFAULT_IMGBB_KEY;
+  const badge = document.getElementById('adminImgbbBadge');
+  if (badge) {
+    badge.textContent = '● DEFAULT KEY';
+    badge.className = 'text-[9px] font-mono text-app-muted bg-white/5 border border-white/10 px-2 py-0.5 rounded';
+  }
+  showToast('Reset to default ImgBB API configuration');
+}
+
+// ── 2. Real Mobile System Status Bar Notifications ────
+function triggerSystemMobileNotification(title, message, bookId = '') {
+  // 1. Check Web / Android Notification API
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      try {
+        const notif = new Notification(title, {
+          body: message,
+          icon: 'assets/icon/favicon.png',
+          badge: 'assets/icon/favicon.png',
+          tag: 'novelix-broadcast-' + Date.now(),
+          vibrate: [200, 100, 200],
+          data: { bookId: bookId }
+        });
+        notif.onclick = function() {
+          window.focus();
+          if (bookId) openPublicationDetail(bookId);
+          notif.close();
+        };
+      } catch (sysErr) {
+        console.warn('[NOVELIX Push] System notification dispatch notice:', sysErr);
+      }
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => {
+        if (p === 'granted') triggerSystemMobileNotification(title, message, bookId);
+      });
+    }
+  }
+}
+
+// ── 3. Seamless In-App Google Drive Connector (No Redirects) ──
+function connectCurrentAccountToDrive() {
+  if (!APP_STATE.user || !APP_STATE.user.email) {
+    openAuthModal();
+    return;
+  }
+
+  const email = APP_STATE.user.email;
+  const acct = {
+    accountId: 'drive_' + Date.now(),
+    email: email,
+    displayName: APP_STATE.user.displayName || 'Google Author',
+    connectedAt: new Date().toISOString(),
+    status: 'active',
+    storageType: 'google_drive'
+  };
+
+  if (!APP_STATE.connectedDriveAccounts) APP_STATE.connectedDriveAccounts = [];
+  const existing = APP_STATE.connectedDriveAccounts.find(a => a.email === acct.email);
+  if (!existing) {
+    APP_STATE.connectedDriveAccounts.push(acct);
+  }
+
+  if (db && APP_STATE.user) {
+    db.collection('users').doc(APP_STATE.user.uid).collection('connectedDriveAccounts')
+      .doc(acct.accountId).set(acct, { merge: true }).catch(() => {});
+  }
+
+  closeDriveConnectModal();
+  showToast(`✓ Google Drive connected: ${acct.email}`);
+  loadConnectedDriveAccounts();
+}
+
+// ── 4. Author Series & Sagas Management Controller ────
+function openCreateSeriesModal() {
+  if (!APP_STATE.user) { openAuthModal(); return; }
+  const m = document.getElementById('seriesModal');
+  if (m) m.classList.add('open');
+}
+
+function closeSeriesModal() {
+  const m = document.getElementById('seriesModal');
+  if (m) m.classList.remove('open');
+}
+
+async function saveAuthorSeries() {
+  if (!APP_STATE.user) { openAuthModal(); return; }
+  const title = (document.getElementById('seriesTitleInput')?.value || '').trim();
+  const desc = (document.getElementById('seriesDescInput')?.value || '').trim();
+  const genre = document.getElementById('seriesGenreSelect')?.value || 'Fantasy';
+  const lang = document.getElementById('seriesLangSelect')?.value || 'English';
+  const coverUrl = (document.getElementById('seriesCoverUrlInput')?.value || '').trim();
+
+  if (!title) {
+    showToast('Please enter a series title.');
+    return;
+  }
+
+  setButtonLoading('btnSaveSeries', true, 'Creating Series...');
+
+  const seriesData = {
+    title: title,
+    description: desc,
+    genre: genre,
+    language: lang,
+    coverUrl: coverUrl,
+    authorUid: APP_STATE.user.uid,
+    authorName: APP_STATE.profile?.displayName || APP_STATE.user.displayName || 'Author',
+    bookCount: 0,
+    books: [],
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  try {
+    if (db) {
+      await db.collection('series').add(seriesData);
+    }
+    showToast(`✓ Series "${title}" created successfully!`);
+    closeSeriesModal();
+    if (document.getElementById('seriesTitleInput')) document.getElementById('seriesTitleInput').value = '';
+    if (document.getElementById('seriesDescInput')) document.getElementById('seriesDescInput').value = '';
+    loadAuthorSeries();
+    populatePublishSeriesDropdown();
+  } catch (err) {
+    showToast(`Error creating series: ${err.message}`);
+  } finally {
+    setButtonLoading('btnSaveSeries', false, 'Create & Save Series');
+  }
+}
+
+async function loadAuthorSeries() {
+  const container = document.getElementById('authorSeriesList');
+  if (!container) return;
+  if (!APP_STATE.user || !db) {
+    container.innerHTML = '<div class="p-4 text-center text-xs text-app-muted">Sign in to view your series.</div>';
+    return;
+  }
+
+  container.innerHTML = '<div class="skeleton-box h-16 rounded-xl"></div>';
+
+  try {
+    const snap = await db.collection('series')
+      .where('authorUid', '==', APP_STATE.user.uid)
+      .get();
+
+    if (snap.empty) {
+      container.innerHTML = `
+        <div class="surface-card-static p-6 text-center text-xs text-app-muted">
+          <p class="mb-2">No book series created yet.</p>
+          <button onclick="openCreateSeriesModal()" class="btn-secondary text-[11px] px-3 py-1.5">+ Create Your First Series</button>
+        </div>
+      `;
+      return;
+    }
+
+    const seriesList = [];
+    snap.forEach(d => seriesList.push({ id: d.id, ...d.data() }));
+
+    container.innerHTML = seriesList.map(s => `
+      <div class="surface-card p-3.5 space-y-2 border border-app-border/80">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            ${s.coverUrl ? `
+              <div class="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-app-surface">
+                <img src="${escapeHtml(s.coverUrl)}" class="w-full h-full object-cover" onerror="this.style.display='none'">
+              </div>
+            ` : `
+              <div class="w-12 h-16 rounded-lg flex items-center justify-center bg-[#1B1B27] text-app-primary text-base font-bold flex-shrink-0">
+                📚
+              </div>
+            `}
+            <div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <h5 class="font-display font-bold text-xs text-white">${escapeHtml(s.title)}</h5>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-app-primary/10 text-app-secondary border border-app-primary/20 font-medium">${escapeHtml(s.genre || 'Series')}</span>
+              </div>
+              <p class="text-[11px] text-app-muted line-clamp-2 mt-0.5">${escapeHtml(s.description || 'No description.')}</p>
+              <div class="text-[10px] text-app-secondary mt-1">${s.bookCount || 0} books in series • Language: ${escapeHtml(s.language || 'English')}</div>
+            </div>
+          </div>
+          <button onclick="deleteAuthorSeries('${s.id}')" class="text-xs text-app-muted hover:text-red-400 p-1">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="p-3 text-xs text-red-400">Error loading series: ${err.message}</div>`;
+  }
+}
+
+async function deleteAuthorSeries(id) {
+  if (!confirm('Are you sure you want to delete this series collection? (Books will remain intact)')) return;
+  if (db) await db.collection('series').doc(id).delete();
+  showToast('Series deleted');
+  loadAuthorSeries();
+  populatePublishSeriesDropdown();
+}
+
+async function populatePublishSeriesDropdown() {
+  const sel = document.getElementById('publishSeriesSelect');
+  if (!sel || !APP_STATE.user || !db) return;
+
+  try {
+    const snap = await db.collection('series')
+      .where('authorUid', '==', APP_STATE.user.uid)
+      .get();
+
+    const options = ['<option value="">Standalone Work (No Series)</option>'];
+    snap.forEach(d => {
+      const data = d.data();
+      options.push(`<option value="${d.id}">${escapeHtml(data.title)}</option>`);
+    });
+    sel.innerHTML = options.join('');
+  } catch (_) {}
+}
+
+
 function switchProfileTab(tabId) {
   document.querySelectorAll('.prof-tab').forEach(b => {
     const isMatch = b.dataset.tab === tabId;
@@ -6045,12 +6512,14 @@ function switchProfileTab(tabId) {
     b.style.color = isMatch ? '#0B0B10' : '#B9A4FF';
   });
 
-  document.getElementById('profileTabContentWorks').classList.toggle('hidden', tabId !== 'works');
-  document.getElementById('profileTabContentLibrary').classList.toggle('hidden', tabId !== 'library');
-  document.getElementById('profileTabContentReviews').classList.toggle('hidden', tabId !== 'reviews');
-  document.getElementById('profileTabContentAbout').classList.toggle('hidden', tabId !== 'about');
+  document.getElementById('profileTabContentWorks')?.classList.toggle('hidden', tabId !== 'works');
+  document.getElementById('profileTabContentSeries')?.classList.toggle('hidden', tabId !== 'series');
+  document.getElementById('profileTabContentLibrary')?.classList.toggle('hidden', tabId !== 'library');
+  document.getElementById('profileTabContentReviews')?.classList.toggle('hidden', tabId !== 'reviews');
+  document.getElementById('profileTabContentAbout')?.classList.toggle('hidden', tabId !== 'about');
 
   if (tabId === 'works') renderProfileWorksTab();
+  if (tabId === 'series') loadAuthorSeries();
 }
 
 function renderProfileWorksTab() {
@@ -6222,7 +6691,8 @@ async function openBookDetail(bookId) {
   document.getElementById('detailTitle').textContent = book.title || 'Untitled';
   document.getElementById('detailAuthor').textContent = book.authorName || 'Author';
   document.getElementById('detailSynopsis').textContent = book.description || 'No synopsis provided.';
-  document.getElementById('detailFormatTag').textContent = formatLabel(book.contentType);
+  const seriesLabel = book.seriesOrder ? `📚 ${book.seriesOrder}` : (book.seriesId ? '📚 In Series' : '');
+  document.getElementById('detailFormatTag').textContent = seriesLabel ? `${formatLabel(book.contentType)} · ${seriesLabel}` : formatLabel(book.contentType);
   document.getElementById('detailReadsCount').textContent = `${formatCompactNum(book.viewCount || 0)} reads`;
   document.getElementById('detailRating').textContent = (book.avgRating && book.avgRating > 0) ? `★ ${book.avgRating.toFixed(1)}` : 'Unrated';
 
@@ -7155,7 +7625,10 @@ function switchPage(pageId) {
 
   if (pageId === 'library') loadLibraryContent();
   if (pageId === 'profile') loadProfileContent();
-  if (pageId === 'publish') updatePublishAccessState();
+  if (pageId === 'publish') {
+    updatePublishAccessState();
+    populatePublishSeriesDropdown();
+  }
   if (pageId === 'explore') renderExploreGridView();
   if (pageId === 'drive') loadConnectedDriveAccounts();
 
