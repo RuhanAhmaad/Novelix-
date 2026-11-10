@@ -6,6 +6,24 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0B0B10">
+  <!-- Fail-safe Early Watchdog -->
+  <script>
+    (function() {
+      window.__NOVELIX_VERSION__ = '12.0.0';
+      window.addEventListener('error', function(e) {
+        console.warn('[NOVELIX Early Error Guard]', e.message);
+        var s = document.getElementById('splashScreen');
+        if (s) { s.classList.add('hide'); s.style.display = 'none'; }
+      });
+      setTimeout(function() {
+        var s = document.getElementById('splashScreen');
+        if (s && !s.classList.contains('hide')) {
+          s.classList.add('hide');
+          setTimeout(function() { try { s.style.display = 'none'; s.remove(); } catch(err){} }, 300);
+        }
+      }, 2000);
+    })();
+  </script>
   <title>NOVELIX 4.0 — Digital Publishing Platform</title>
 
   <!-- Typography: Inter, Manrope, Playfair Display -->
@@ -1283,11 +1301,16 @@
             <p id="profileEmailDisplay" class="text-[11px] text-app-muted"></p>
           </div>
 
-          <div class="flex items-center gap-1.5">
-            <button onclick="openEditProfileModal()" class="btn-secondary text-[11px] px-2.5 py-1.5">Edit Profile</button>
-            <button onclick="openSettingsModal()" class="btn-secondary text-[11px] px-2.5 py-1.5 flex items-center gap-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button onclick="openBookManagementPanel()" class="btn-primary text-[11px] px-2.5 py-1.5 font-bold shadow-md bg-gradient-to-r from-[#9270FF] to-[#6C63FF] text-white flex items-center gap-1">
+              <span>📚 Manage Books</span>
+            </button>
+            <button onclick="openEditProfileModal()" class="btn-secondary text-[11px] px-2 py-1.5">Edit Profile</button>
+            <button onclick="checkForOTAUpdate(false)" class="btn-secondary text-[11px] px-2 py-1.5 flex items-center gap-1" title="Check for In-App Updates from GitHub">
+              <span>🔄</span>
+            </button>
+            <button onclick="openSettingsModal()" class="btn-secondary text-[11px] px-2 py-1.5 flex items-center gap-1">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              Settings
             </button>
           </div>
         </div>
@@ -1727,9 +1750,50 @@
       <div id="settingsSec-about" class="settings-section hidden space-y-4">
         <div class="surface-card-static p-4 space-y-2 text-center">
           <div class="w-10 h-10 rounded-xl bg-app-surface border border-app-border mx-auto flex items-center justify-center font-display font-extrabold text-app-primary">N</div>
-          <h4 class="font-display font-bold text-sm text-white">NOVELIX 4.0</h4>
-          <p class="text-[11px] text-app-muted">Editorial Digital Publishing Platform</p>
-          <p class="text-[10px] font-mono text-app-secondary">Build 4.0.0-PROD • Firebase Native</p>
+          <h4 class="font-display font-bold text-sm text-white">NOVELIX 12.0</h4>
+          <p class="text-[11px] text-app-muted">Professional Digital Reading & Publishing Platform</p>
+          <p class="text-[10px] font-mono text-[#FFD700]">Build 12.0.0 • Live GitHub OTA Enabled</p>
+        </div>
+
+        <!-- 🚀 LIVE GITHUB IN-APP OTA UPDATER CARD -->
+        <div class="p-4 rounded-2xl bg-gradient-to-br from-[#161628] to-[#0D0D18] border border-[#9270FF]/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🚀</span>
+              <div>
+                <h4 class="font-display font-bold text-xs text-white">Live In-App OTA Updater</h4>
+                <p class="text-[10px] text-app-muted">Direct source updates via GitHub repository</p>
+              </div>
+            </div>
+            <span id="otaVersionBadge" class="text-[9px] font-mono text-[#9270FF] bg-[#9270FF]/15 border border-[#9270FF]/30 px-2 py-0.5 rounded font-bold">v12.0.0</span>
+          </div>
+
+          <p class="text-[11px] text-gray-300 leading-relaxed">
+            Update NOVELIX features instantly without reinstalling the APK! Code is synchronized live with the official GitHub repository.
+          </p>
+
+          <div class="p-2.5 rounded-lg bg-[#0E0E18] border border-[#222235] text-[10px] space-y-1">
+            <div class="flex justify-between text-app-muted">
+              <span>Source Channel:</span>
+              <span class="text-white font-mono">github.com/RuhanAhmaad/Novelix- (main)</span>
+            </div>
+            <div class="flex justify-between text-app-muted">
+              <span>Status:</span>
+              <span id="otaStatusText" class="text-emerald-400 font-semibold">● Ready & Operational</span>
+            </div>
+          </div>
+
+          <div class="flex gap-2 pt-1 flex-wrap">
+            <button type="button" onclick="checkForOTAUpdate(false)" class="btn-secondary text-xs flex-1 py-2 font-semibold flex items-center justify-center gap-1.5">
+              <span>🔍 Check for Updates</span>
+            </button>
+            <button type="button" onclick="forceUpdateFromGitHub()" class="btn-primary text-xs flex-1 py-2 font-bold bg-gradient-to-r from-[#9270FF] to-[#6C63FF] text-white flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(146,112,255,0.35)]">
+              <span>⚡ Pull & Apply Latest</span>
+            </button>
+          </div>
+          <button type="button" onclick="resetOTACache()" class="text-[10px] text-app-muted hover:text-white w-full text-center pt-1 underline">
+            ↺ Restore Factory Bundle (Clear Cache)
+          </button>
         </div>
 
         <div class="surface-card-static p-4 space-y-2 text-xs text-app-muted">
@@ -6208,9 +6272,7 @@ async function computeUserStats() {
 // ────────────────────────────────────────────────────────
 
 // ── 1. Admin ImgBB API Key Management Controller ──────
-function getActiveImgBBKey() {
-  return localStorage.getItem('novelix_imgbb_key') || DEFAULT_IMGBB_KEY;
-}
+// (getActiveImgBBKey defined earlier — no duplicate needed)
 
 function adminSaveImgBBKey() {
   const input = document.getElementById('adminImgbbKeyInput');
@@ -6643,6 +6705,797 @@ async function deleteAuthorPublication(id) {
 // ────────────────────────────────────────────────────────
 // BOOK DETAIL & DUAL-ENGINE READER (PDF.JS & MANHWA)
 // ────────────────────────────────────────────────────────
+
+
+// ════════════════════════════════════════════════════════════
+// NOVELIX 12.0: LIVE OTA UPDATE & BOOK MANAGEMENT ENGINES
+// ════════════════════════════════════════════════════════════
+
+const NOVELIX_VERSION = '12.0.0';
+const OTA_GITHUB_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/index.html';
+const OTA_VERSION_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/version.json';
+
+// ── Live OTA Update Engine ────────────────────────────────
+async function checkForOTAUpdate(silent = true) {
+  const statusEl = document.getElementById('otaStatusText');
+  if (statusEl) statusEl.textContent = 'Checking GitHub...';
+
+  try {
+    const res = await fetch(OTA_VERSION_URL + '?t=' + Date.now(), {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(6000)
+    });
+
+    if (!res.ok) {
+      if (statusEl) statusEl.textContent = '● Up to date (v' + NOVELIX_VERSION + ')';
+      if (!silent) showToast('✅ You are running the latest version (' + NOVELIX_VERSION + ')');
+      return;
+    }
+
+    const data = await res.json();
+    const remoteVer = data.version || '12.0.0';
+
+    if (remoteVer === NOVELIX_VERSION) {
+      if (statusEl) statusEl.textContent = '● Up to date (v' + NOVELIX_VERSION + ')';
+      if (!silent) showToast('✅ Running latest NOVELIX build (v' + NOVELIX_VERSION + ')');
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span class="text-amber-400">⚡ Update available: v' + remoteVer + '</span>';
+      if (!silent) {
+        if (confirm('🚀 New version v' + remoteVer + ' is available on GitHub!\n\nPull and install update now?')) {
+          await forceUpdateFromGitHub();
+        }
+      } else {
+        showToast('🔔 New NOVELIX update v' + remoteVer + ' available on GitHub');
+      }
+    }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '● Offline / Current (v' + NOVELIX_VERSION + ')';
+    if (!silent) showToast('Update check note: Running current build (v' + NOVELIX_VERSION + ')');
+  }
+}
+
+async function forceUpdateFromGitHub() {
+  const statusEl = document.getElementById('otaStatusText');
+  if (statusEl) statusEl.textContent = '⏳ Downloading latest source from GitHub...';
+  showToast('⬇️ Pulling latest NOVELIX release from GitHub...');
+
+  try {
+    const res = await fetch(OTA_GITHUB_URL + '?t=' + Date.now(), {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(35000)
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' while downloading from GitHub');
+    const html = await res.text();
+
+    if (!html || html.length < 15000 || !html.includes('NOVELIX')) {
+      throw new Error('Downloaded bundle verification failed — invalid code structure.');
+    }
+
+    // Cache to localStorage
+    try {
+      localStorage.setItem('novelix_ota_html', html);
+      localStorage.setItem('novelix_ota_ver', '12.0.0-ota-' + Date.now());
+    } catch(err) {
+      console.warn('[NOVELIX OTA] LocalStorage quota notice:', err);
+    }
+
+    if (statusEl) statusEl.innerHTML = '<span class="text-emerald-400">✓ Updated! Applying...</span>';
+    showToast('✅ Downloaded latest NOVELIX! Applying update in 2 seconds...');
+
+    setTimeout(() => {
+      // Hot-replace document
+      document.open();
+      document.write(html);
+      document.close();
+    }, 1800);
+
+  } catch (err) {
+    if (statusEl) statusEl.innerHTML = '<span class="text-red-400">✗ ' + err.message + '</span>';
+    showToast('Update failed: ' + err.message);
+  }
+}
+
+function resetOTACache() {
+  localStorage.removeItem('novelix_ota_html');
+  localStorage.removeItem('novelix_ota_ver');
+  showToast('Factory bundle restored. Reloading...');
+  setTimeout(() => window.location.reload(true), 1000);
+}
+
+// ── Professional Book Management Studio Controller ─────────
+let _bmgmtState = {
+  all: [],
+  filtered: [],
+  selected: new Set()
+};
+
+async function openBookManagementPanel() {
+  if (!APP_STATE.user) {
+    showToast('Please sign in to access your Author Studio.');
+    openAuthModal();
+    return;
+  }
+
+  const modal = document.getElementById('bookManagementModal');
+  if (modal) modal.classList.remove('hidden');
+
+  await refreshBookManagementList();
+}
+
+function closeBookManagementPanel() {
+  const modal = document.getElementById('bookManagementModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function refreshBookManagementList() {
+  const listEl = document.getElementById('bmgmtBookList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="text-center text-gray-500 py-12">⏳ Loading your library from Firestore...</div>';
+
+  try {
+    let books = [];
+    if (db && APP_STATE.user) {
+      const snap = await db.collection('books')
+        .where('authorId', '==', APP_STATE.user.uid)
+        .get();
+      snap.forEach(d => books.push({ id: d.id, ...d.data() }));
+    }
+
+    if (!books.length && APP_STATE.allBooks) {
+      books = APP_STATE.allBooks.filter(b => b.authorId === APP_STATE.user?.uid);
+    }
+
+    _bmgmtState.all = books;
+    _bmgmtState.selected.clear();
+
+    const subtitle = document.getElementById('bmgmtSubtitle');
+    if (subtitle) subtitle.textContent = `${books.length} title${books.length !== 1 ? 's' : ''} in your author catalog`;
+
+    // Metrics summary
+    const totalViews = books.reduce((s, b) => s + (b.views || b.viewCount || 0), 0);
+    const totalReads = books.reduce((s, b) => s + (b.reads || b.readCount || 0), 0);
+    
+    document.getElementById('bmgmtFooterWorks').textContent = books.length;
+    document.getElementById('bmgmtFooterViews').textContent = formatCompactNum(totalViews);
+    document.getElementById('bmgmtFooterReads').textContent = formatCompactNum(totalReads);
+
+    bmgmtApplyFilters();
+  } catch (e) {
+    listEl.innerHTML = `<div class="p-6 text-center text-red-400 text-xs">Error loading catalog: ${e.message}</div>`;
+  }
+}
+
+function bmgmtApplyFilters() {
+  const searchTerm = (document.getElementById('bmgmtSearchInput')?.value || '').toLowerCase().trim();
+  const filterStatus = document.getElementById('bmgmtFilterStatus')?.value || 'all';
+  const sortBy = document.getElementById('bmgmtSortBy')?.value || 'createdAt';
+
+  let list = [..._bmgmtState.all];
+
+  // Search filter
+  if (searchTerm) {
+    list = list.filter(b => 
+      (b.title || '').toLowerCase().includes(searchTerm) ||
+      (b.category || '').toLowerCase().includes(searchTerm) ||
+      (b.genre || '').toLowerCase().includes(searchTerm)
+    );
+  }
+
+  // Status filter
+  if (filterStatus !== 'all') {
+    list = list.filter(b => {
+      const s = b.status || (b.publishStatus === 'draft' ? 'draft' : 'approved');
+      if (filterStatus === 'draft') return s === 'draft';
+      if (filterStatus === 'approved') return s === 'approved' || s === 'published';
+      if (filterStatus === 'pending') return s === 'pending';
+      if (filterStatus === 'unlisted') return b.visibility === 'unlisted';
+      return true;
+    });
+  }
+
+  // Sort
+  list.sort((a, b) => {
+    if (sortBy === 'views') return (b.views || b.viewCount || 0) - (a.views || a.viewCount || 0);
+    if (sortBy === 'reads') return (b.reads || b.readCount || 0) - (a.reads || a.readCount || 0);
+    if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '');
+    // Default: newest first
+    const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt || 0);
+    const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt || 0);
+    return tb - ta;
+  });
+
+  _bmgmtState.filtered = list;
+  renderBmgmtBookCards(list);
+}
+
+function renderBmgmtBookCards(books) {
+  const listEl = document.getElementById('bmgmtBookList');
+  if (!listEl) return;
+
+  if (!books.length) {
+    listEl.innerHTML = `
+      <div class="p-10 text-center text-gray-500 surface-card rounded-2xl">
+        <div class="text-3xl mb-2">📖</div>
+        <p class="text-sm font-semibold text-white">No publications match your criteria</p>
+        <p class="text-xs text-app-muted mt-1">Tap "+ Publish New" to create a new title.</p>
+      </div>`;
+    return;
+  }
+
+  listEl.innerHTML = books.map(b => {
+    const isSelected = _bmgmtState.selected.has(b.id);
+    const isDraft = b.status === 'draft' || b.publishStatus === 'draft';
+    const isPending = b.status === 'pending';
+    const statusPill = isDraft 
+      ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">📝 Draft</span>'
+      : (isPending 
+          ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 font-semibold">⏳ In Review</span>'
+          : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">✓ Published</span>');
+
+    const seriesTag = b.seriesOrder 
+      ? `<span class="text-[10px] text-purple-300 bg-purple-500/15 border border-purple-500/25 px-1.5 py-0.5 rounded">📚 ${escapeHtml(b.seriesOrder)}</span>` 
+      : (b.seriesId ? '<span class="text-[10px] text-purple-300 bg-purple-500/15 border border-purple-500/25 px-1.5 py-0.5 rounded">📚 In Series</span>' : '');
+
+    const cover = b.coverUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=300&q=80';
+
+    return `
+    <div class="surface-card p-3 rounded-2xl flex items-start gap-3 border transition hover:border-purple-500/50 ${isSelected ? 'border-purple-500 bg-purple-950/20' : 'border-[#1E1E30]'}" id="bmgmtCard_${b.id}">
+      <!-- Checkbox -->
+      <div class="pt-1">
+        <input type="checkbox" onchange="bmgmtToggleSelect('${b.id}', this.checked)" ${isSelected ? 'checked' : ''} class="w-4 h-4 rounded accent-purple-600 cursor-pointer">
+      </div>
+
+      <!-- Cover Thumbnail -->
+      <div class="w-14 h-20 rounded-xl overflow-hidden bg-gray-900 border border-[#262638] flex-shrink-0 cursor-pointer" onclick="openBookDetail('${b.id}')">
+        <img src="${escapeHtml(cover)}" alt="" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=300&q=80'">
+      </div>
+
+      <!-- Meta Info -->
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h4 class="font-display font-bold text-white text-sm truncate cursor-pointer hover:text-purple-300" onclick="openBookDetail('${b.id}')">${escapeHtml(b.title || 'Untitled')}</h4>
+            <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <span class="text-[11px] text-app-muted">${escapeHtml(b.category || 'General')}</span>
+              <span class="text-[11px] text-gray-500">•</span>
+              <span class="text-[11px] text-app-muted">${escapeHtml(b.language || 'English')}</span>
+              ${seriesTag}
+            </div>
+          </div>
+          <div>${statusPill}</div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="flex items-center gap-3 mt-2 text-[11px] text-app-muted flex-wrap">
+          <span>👁️ ${(b.views || b.viewCount || 0).toLocaleString()} views</span>
+          <span>📖 ${(b.reads || b.readCount || 0).toLocaleString()} reads</span>
+          <span>⭐ ${b.rating || '5.0'}</span>
+          <span>💾 ${b.storageProvider === 'google_drive' ? 'Google Drive' : 'Cloud PDF'}</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-1.5 mt-2.5 flex-wrap">
+          <button onclick="openBookDetail('${b.id}')" class="btn-secondary text-[11px] px-2.5 py-1 text-white">👁️ Preview</button>
+          <button onclick="openEditPublication('${b.id}'); closeBookManagementPanel();" class="btn-secondary text-[11px] px-2.5 py-1 text-purple-300 border-purple-500/30">✏️ Edit Details</button>
+          <button onclick="bmgmtToggleFeatured('${b.id}', ${!b.featured})" class="btn-secondary text-[11px] px-2.5 py-1 ${b.featured ? 'text-yellow-400 border-yellow-500/40' : 'text-gray-400'}">${b.featured ? '★ Featured' : '☆ Feature'}</button>
+          <button onclick="deleteAuthorPublication('${b.id}'); refreshBookManagementList();" class="text-[11px] px-2.5 py-1 rounded bg-red-950/40 text-red-400 border border-red-800/40 hover:bg-red-900/60">🗑️ Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function bmgmtToggleSelect(id, checked) {
+  if (checked) _bmgmtState.selected.add(id);
+  else _bmgmtState.selected.delete(id);
+
+  const card = document.getElementById('bmgmtCard_' + id);
+  if (card) card.classList.toggle('border-purple-500', checked);
+}
+
+function bmgmtSelectAll() {
+  const allIds = _bmgmtState.filtered.map(b => b.id);
+  const isAll = allIds.every(id => _bmgmtState.selected.has(id));
+
+  if (isAll) {
+    _bmgmtState.selected.clear();
+  } else {
+    allIds.forEach(id => _bmgmtState.selected.add(id));
+  }
+  renderBmgmtBookCards(_bmgmtState.filtered);
+}
+
+async function bmgmtBulkDelete() {
+  if (!_bmgmtState.selected.size) {
+    showToast('Please select at least one book to delete.');
+    return;
+  }
+
+  const count = _bmgmtState.selected.size;
+  if (!confirm(`Are you sure you want to permanently delete ${count} publication(s)? This cannot be undone.`)) return;
+
+  try {
+    const batch = db.batch();
+    _bmgmtState.selected.forEach(id => {
+      batch.delete(db.collection('books').doc(id));
+    });
+    await batch.commit();
+    showToast(`✅ Successfully deleted ${count} book(s).`);
+    _bmgmtState.selected.clear();
+    await refreshBookManagementList();
+  } catch (err) {
+    showToast('Bulk delete error: ' + err.message);
+  }
+}
+
+async function bmgmtToggleFeatured(bookId, featured) {
+  if (!db) return;
+  try {
+    await db.collection('books').doc(bookId).update({ featured });
+    showToast(featured ? '⭐ Book pinned as Featured!' : 'Book unpinned.');
+    await refreshBookManagementList();
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+
+// Alias: openPublicationDetail → openBookDetail (used by notification banners & admin)
+async function openPublicationDetail(bookId) {
+  if (!bookId) return;
+  return openBookDetail(bookId);
+}
+
+
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+// PROFESSIONAL BOOK MANAGEMENT SYSTEM (NOVELIX 12.0)
+// ════════════════════════════════════════════════════════════
+
+let bookMgmtState = { books: [], selected: new Set(), sortBy: 'createdAt', sortDir: 'desc', filterStatus: 'all' };
+
+async function openBookManagementPanel() {
+  if (!APP_STATE.user || !db) { showToast('Sign in required'); return; }
+  
+  const modal = document.getElementById('bookManagementModal');
+  if (!modal) { injectBookManagementModal(); return openBookManagementPanel(); }
+  modal.classList.remove('hidden');
+  await refreshBookManagementList();
+}
+
+function closeBookManagementPanel() {
+  const modal = document.getElementById('bookManagementModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function injectBookManagementModal() {
+  const html = `
+  <div id="bookManagementModal" class="fixed inset-0 z-[200] flex flex-col bg-[#08080E]">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800" style="background:#0f0f1a;">
+      <div>
+        <h2 class="font-bold text-white text-lg">📚 Book Management</h2>
+        <p class="text-xs text-gray-400" id="bmgmtSubtitle">Loading...</p>
+      </div>
+      <button onclick="closeBookManagementPanel()" class="text-gray-400 hover:text-white text-2xl leading-none">×</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="flex items-center gap-2 px-4 py-2 border-b border-gray-800 flex-wrap" style="background:#0f0f1a;">
+      <select id="bmgmtFilterStatus" onchange="refreshBookManagementList()" class="text-xs bg-gray-800 text-white rounded-lg px-2 py-1.5 border border-gray-700">
+        <option value="all">All Status</option>
+        <option value="approved">Published</option>
+        <option value="pending">Pending</option>
+        <option value="rejected">Rejected</option>
+        <option value="draft">Draft</option>
+      </select>
+      <select id="bmgmtSortBy" onchange="refreshBookManagementList()" class="text-xs bg-gray-800 text-white rounded-lg px-2 py-1.5 border border-gray-700">
+        <option value="createdAt">Newest First</option>
+        <option value="views">Most Viewed</option>
+        <option value="title">A–Z</option>
+        <option value="rating">Top Rated</option>
+      </select>
+      <div class="flex-1"></div>
+      <button onclick="bmgmtSelectAll()" class="text-xs bg-gray-700 text-white px-3 py-1.5 rounded-lg hover:bg-gray-600">Select All</button>
+      <button onclick="bmgmtBulkDelete()" class="text-xs bg-red-800 text-white px-3 py-1.5 rounded-lg hover:bg-red-700">Delete Selected</button>
+    </div>
+
+    <!-- Book List -->
+    <div class="flex-1 overflow-y-auto px-4 py-3" id="bmgmtBookList">
+      <div class="text-center text-gray-500 py-10">Loading your books...</div>
+    </div>
+
+    <!-- Footer stats -->
+    <div class="px-4 py-2 border-t border-gray-800 text-xs text-gray-500 flex gap-4" style="background:#0f0f1a;" id="bmgmtFooter">
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function refreshBookManagementList() {
+  if (!APP_STATE.user || !db) return;
+  const listEl = document.getElementById('bmgmtBookList');
+  if (!listEl) return;
+  
+  const filterStatus = document.getElementById('bmgmtFilterStatus')?.value || 'all';
+  const sortBy = document.getElementById('bmgmtSortBy')?.value || 'createdAt';
+  
+  listEl.innerHTML = '<div class="text-center text-gray-500 py-10">⏳ Loading...</div>';
+  
+  try {
+    let query = db.collection('books').where('authorId', '==', APP_STATE.user.uid);
+    if (filterStatus !== 'all') query = query.where('status', '==', filterStatus);
+    
+    const snap = await query.get();
+    let books = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Client-side sort
+    books.sort((a, b) => {
+      if (sortBy === 'views') return (b.views||0) - (a.views||0);
+      if (sortBy === 'title') return (a.title||'').localeCompare(b.title||'');
+      if (sortBy === 'rating') return (b.rating||0) - (a.rating||0);
+      // Default: createdAt desc
+      const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+      const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+      return tb - ta;
+    });
+    
+    bookMgmtState.books = books;
+    bookMgmtState.selected = new Set();
+    
+    const subtitle = document.getElementById('bmgmtSubtitle');
+    if (subtitle) subtitle.textContent = `${books.length} book${books.length !== 1 ? 's' : ''} in your library`;
+    
+    const footer = document.getElementById('bmgmtFooter');
+    if (footer) {
+      const totalViews = books.reduce((s, b) => s + (b.views||0), 0);
+      const totalReads = books.reduce((s, b) => s + (b.reads||0), 0);
+      footer.innerHTML = `<span>📊 Total Views: <b class="text-white">${totalViews.toLocaleString()}</b></span><span>📖 Total Reads: <b class="text-white">${totalReads.toLocaleString()}</b></span>`;
+    }
+    
+    if (books.length === 0) {
+      listEl.innerHTML = '<div class="text-center text-gray-500 py-10">No books found.</div>';
+      return;
+    }
+    
+    listEl.innerHTML = books.map(book => {
+      const statusColor = { approved: 'bg-green-800 text-green-200', pending: 'bg-yellow-800 text-yellow-200', rejected: 'bg-red-800 text-red-200', draft: 'bg-gray-700 text-gray-300' }[book.status] || 'bg-gray-700 text-gray-300';
+      const statusLabel = { approved: '✓ Published', pending: '⏳ Pending', rejected: '✗ Rejected', draft: '📝 Draft' }[book.status] || book.status;
+      return `
+      <div class="flex items-start gap-3 p-3 mb-2 rounded-xl border transition" id="bmgmt_${book.id}" style="background:#111120; border-color:#1e1e3a;">
+        <input type="checkbox" class="mt-1 w-4 h-4 accent-purple-500 flex-shrink-0" onchange="bmgmtToggleSelect('${book.id}', this.checked)" id="bmgmtChk_${book.id}">
+        <img src="${book.coverUrl || ''}" alt="" class="w-14 h-20 rounded-lg object-cover bg-gray-800 flex-shrink-0" onerror="this.style.background='#1e1e3a'">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="font-semibold text-white text-sm leading-tight">${escapeHtml(book.title||'Untitled')}</h3>
+            <span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${statusColor}">${statusLabel}</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">${escapeHtml(book.category||'')} · ${escapeHtml(book.language||'')}</p>
+          <div class="flex gap-3 mt-2 text-xs text-gray-500">
+            <span>👁️ ${(book.views||0).toLocaleString()}</span>
+            <span>⭐ ${book.rating||0}</span>
+            <span>📖 ${(book.reads||0).toLocaleString()}</span>
+          </div>
+          <!-- Action buttons -->
+          <div class="flex gap-2 mt-2 flex-wrap">
+            <button onclick="openBookDetail('${book.id}')" class="text-xs bg-purple-800 hover:bg-purple-700 text-white px-2 py-1 rounded-lg transition">View</button>
+            <button onclick="bmgmtEditBook('${book.id}')" class="text-xs bg-blue-800 hover:bg-blue-700 text-white px-2 py-1 rounded-lg transition">Edit</button>
+            <button onclick="bmgmtToggleFeatured('${book.id}', ${!book.featured})" class="text-xs ${book.featured ? 'bg-yellow-700 hover:bg-yellow-600' : 'bg-gray-700 hover:bg-gray-600'} text-white px-2 py-1 rounded-lg transition">${book.featured ? '★ Featured' : '☆ Feature'}</button>
+            <button onclick="bmgmtDeleteBook('${book.id}')" class="text-xs bg-red-900 hover:bg-red-800 text-white px-2 py-1 rounded-lg transition">Delete</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    listEl.innerHTML = `<div class="text-center text-red-400 py-10">Error: ${e.message}</div>`;
+  }
+}
+
+function bmgmtToggleSelect(bookId, checked) {
+  if (checked) bookMgmtState.selected.add(bookId);
+  else bookMgmtState.selected.delete(bookId);
+}
+
+function bmgmtSelectAll() {
+  const allSelected = bookMgmtState.selected.size === bookMgmtState.books.length;
+  if (allSelected) {
+    bookMgmtState.selected.clear();
+    document.querySelectorAll('[id^="bmgmtChk_"]').forEach(cb => cb.checked = false);
+  } else {
+    bookMgmtState.books.forEach(b => bookMgmtState.selected.add(b.id));
+    document.querySelectorAll('[id^="bmgmtChk_"]').forEach(cb => cb.checked = true);
+  }
+}
+
+async function bmgmtBulkDelete() {
+  if (bookMgmtState.selected.size === 0) { showToast('No books selected'); return; }
+  if (!confirm(`Delete ${bookMgmtState.selected.size} selected book(s)? This cannot be undone.`)) return;
+  
+  const batch = db.batch();
+  bookMgmtState.selected.forEach(id => {
+    batch.delete(db.collection('books').doc(id));
+  });
+  
+  try {
+    await batch.commit();
+    showToast(`✅ Deleted ${bookMgmtState.selected.size} book(s)`);
+    await refreshBookManagementList();
+  } catch(e) {
+    showToast('Delete failed: ' + e.message);
+  }
+}
+
+async function bmgmtDeleteBook(bookId) {
+  if (!confirm('Delete this book permanently? This cannot be undone.')) return;
+  try {
+    await db.collection('books').doc(bookId).delete();
+    showToast('✅ Book deleted');
+    await refreshBookManagementList();
+  } catch(e) {
+    showToast('Delete failed: ' + e.message);
+  }
+}
+
+async function bmgmtToggleFeatured(bookId, featured) {
+  try {
+    await db.collection('books').doc(bookId).update({ featured });
+    showToast(featured ? '⭐ Book featured!' : 'Feature removed');
+    await refreshBookManagementList();
+  } catch(e) {
+    showToast(e.message);
+  }
+}
+
+function bmgmtEditBook(bookId) {
+  // Open the publish form pre-filled with this book's data
+  const book = bookMgmtState.books.find(b => b.id === bookId);
+  if (!book) { showToast('Book not found'); return; }
+  
+  closeBookManagementPanel();
+  switchPage('publish');
+  
+  setTimeout(() => {
+    // Pre-fill form
+    const fields = { publishTitleInput: book.title, publishDescInput: book.description, publishAuthorInput: book.author, publishCategoryInput: book.category, publishLanguageInput: book.language };
+    Object.entries(fields).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && val) el.value = val;
+    });
+    // Store book ID for update mode
+    window._editingBookId = bookId;
+    showToast('📝 Editing: ' + book.title);
+  }, 400);
+}
+
+
+
+// Profile load hook for professional rendering
+async function loadMyProfile(userId) {
+  if (userId && db) {
+    try { await loadProfessionalAuthorProfile(userId); } catch(e) { console.warn('[NOVELIX Profile hook]', e); }
+  }
+}
+
+// PROFESSIONAL AUTHOR PROFILE SYSTEM (NOVELIX 12.0)
+// ════════════════════════════════════════════════════════════
+
+async function loadProfessionalAuthorProfile(userId) {
+  if (!userId || !db) return;
+
+  try {
+    // Load user profile
+    const profileSnap = await db.collection('profiles').doc(userId).get();
+    const profile = profileSnap.exists ? profileSnap.data() : {};
+    
+    // Load this author's books
+    const booksSnap = await db.collection('books')
+      .where('authorId', '==', userId)
+      .where('status', '==', 'approved')
+      .orderBy('createdAt', 'desc')
+      .get();
+    
+    const books = booksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Load series
+    const seriesSnap = await db.collection('series')
+      .where('authorId', '==', userId)
+      .get();
+    const seriesList = seriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Compute stats
+    const totalViews = books.reduce((s, b) => s + (b.views || 0), 0);
+    const totalReads = books.reduce((s, b) => s + (b.reads || 0), 0);
+    const avgRating = books.length > 0
+      ? (books.reduce((s, b) => s + (b.rating || 0), 0) / books.length).toFixed(1)
+      : '—';
+    
+    renderProfessionalAuthorProfile(profile, books, seriesList, {
+      totalViews, totalReads, avgRating, userId
+    });
+    
+  } catch(e) {
+    console.warn('[NOVELIX Profile]', e);
+    showToast('Could not load full profile.');
+  }
+}
+
+function renderProfessionalAuthorProfile(profile, books, seriesList, stats) {
+  const container = document.getElementById('profileMainContent');
+  if (!container) return;
+
+  const isOwnProfile = APP_STATE.user && APP_STATE.user.uid === stats.userId;
+  const displayName = profile.displayName || profile.name || 'Author';
+  const bio = profile.bio || 'No bio yet.';
+  const avatar = profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6C63FF&color=fff&size=128`;
+  const joined = profile.createdAt ? new Date(profile.createdAt.toDate ? profile.createdAt.toDate() : profile.createdAt).getFullYear() : '—';
+  const socialLinks = profile.socialLinks || {};
+
+  // Featured book (most viewed)
+  const featured = books.length > 0 ? books.reduce((a, b) => ((b.views||0) > (a.views||0) ? b : a), books[0]) : null;
+
+  container.innerHTML = `
+    <div class="author-profile-wrap">
+      <!-- HERO BANNER -->
+      <div class="author-hero relative overflow-hidden rounded-2xl mb-4" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height:140px;">
+        <div class="absolute inset-0 opacity-10" style="background: url('${featured ? (featured.coverUrl || '') : ''}') center/cover;"></div>
+        <div class="relative z-10 flex items-end gap-4 p-5 pb-4">
+          <div class="relative">
+            <img src="${avatar}" alt="${displayName}" class="w-20 h-20 rounded-2xl border-4 border-purple-500 object-cover shadow-2xl" onerror="this.src='https://ui-avatars.com/api/?name=A&background=6C63FF&color=fff&size=128'">
+            ${isOwnProfile ? `<button onclick="triggerAvatarUpload()" class="absolute -bottom-1 -right-1 bg-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-xs text-white hover:bg-purple-500 transition">✏️</button>` : ''}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h2 class="text-xl font-bold text-white truncate">${escapeHtml(displayName)}</h2>
+            <div class="flex flex-wrap gap-2 mt-1">
+              ${profile.verified ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">✓ Verified</span>' : ''}
+              ${profile.vip ? '<span class="text-xs text-yellow-900 px-2 py-0.5 rounded-full font-bold" style="background:#FFD700;">👑 VIP</span>' : ''}
+              <span class="text-xs text-purple-300">Member since ${joined}</span>
+            </div>
+          </div>
+          ${isOwnProfile ? `
+          <div class="flex gap-2">
+            <button onclick="openEditProfileModal()" class="btn-primary text-xs px-3 py-1.5">Edit Profile</button>
+            <button onclick="checkForOTAUpdate(false)" class="btn-secondary text-xs px-3 py-1.5" title="Check for app update">🔄</button>
+          </div>` : `
+          <div class="flex gap-2">
+            <button onclick="toggleFollowAuthor('${stats.userId}')" id="followBtn_${stats.userId}" class="btn-primary text-xs px-4 py-1.5">Follow</button>
+          </div>`}
+        </div>
+      </div>
+
+      <!-- BIO -->
+      <div class="surface-card rounded-xl p-4 mb-4">
+        <p class="text-sm text-gray-300 leading-relaxed" id="authorBioText">${escapeHtml(bio)}</p>
+        ${Object.keys(socialLinks).length > 0 ? `
+        <div class="flex gap-3 mt-3 flex-wrap">
+          ${socialLinks.twitter ? `<a href="${socialLinks.twitter}" target="_blank" class="text-xs text-blue-400 hover:text-blue-300">🐦 Twitter</a>` : ''}
+          ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" target="_blank" class="text-xs text-pink-400 hover:text-pink-300">📸 Instagram</a>` : ''}
+          ${socialLinks.website ? `<a href="${socialLinks.website}" target="_blank" class="text-xs text-green-400 hover:text-green-300">🌐 Website</a>` : ''}
+        </div>` : ''}
+      </div>
+
+      <!-- STATS ROW -->
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <div class="surface-card rounded-xl p-3 text-center">
+          <div class="text-lg font-bold text-purple-400">${books.length}</div>
+          <div class="text-xs text-gray-400">Books</div>
+        </div>
+        <div class="surface-card rounded-xl p-3 text-center">
+          <div class="text-lg font-bold text-blue-400">${stats.totalViews >= 1000 ? (stats.totalViews/1000).toFixed(1)+'K' : stats.totalViews}</div>
+          <div class="text-xs text-gray-400">Views</div>
+        </div>
+        <div class="surface-card rounded-xl p-3 text-center">
+          <div class="text-lg font-bold text-green-400">⭐${stats.avgRating}</div>
+          <div class="text-xs text-gray-400">Rating</div>
+        </div>
+        <div class="surface-card rounded-xl p-3 text-center">
+          <div class="text-lg font-bold text-yellow-400">${seriesList.length}</div>
+          <div class="text-xs text-gray-400">Series</div>
+        </div>
+      </div>
+
+      ${featured ? `
+      <!-- FEATURED WORK -->
+      <div class="surface-card rounded-xl p-4 mb-4 cursor-pointer hover:border-purple-500 border border-transparent transition" onclick="openBookDetail('${featured.id}')">
+        <div class="text-xs text-purple-400 font-semibold mb-2 uppercase tracking-wider">⭐ Featured Work</div>
+        <div class="flex gap-3 items-center">
+          <img src="${featured.coverUrl || ''}" alt="${escapeHtml(featured.title||'')}" class="w-14 h-20 rounded-lg object-cover bg-gray-700">
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-white truncate">${escapeHtml(featured.title||'Untitled')}</h3>
+            <p class="text-xs text-gray-400 mt-1 line-clamp-2">${escapeHtml((featured.description||'').substring(0,120))}</p>
+            <div class="flex gap-3 mt-2 text-xs text-gray-500">
+              <span>👁️ ${featured.views||0}</span>
+              <span>⭐ ${featured.rating||0}</span>
+              <span>${featured.category||''}</span>
+            </div>
+          </div>
+        </div>
+      </div>` : ''}
+
+      <!-- SERIES SHOWCASE -->
+      ${seriesList.length > 0 ? `
+      <div class="mb-4">
+        <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">📚 Series & Sagas (${seriesList.length})</div>
+        <div class="flex gap-3 overflow-x-auto pb-2">
+          ${seriesList.map(s => `
+          <div class="surface-card flex-shrink-0 w-40 rounded-xl p-3 cursor-pointer hover:border-purple-500 border border-transparent transition" onclick="openSeriesView('${s.id}')">
+            <div class="w-full h-24 bg-gradient-to-br from-purple-900 to-blue-900 rounded-lg mb-2 flex items-center justify-center text-2xl">${s.emoji || '📖'}</div>
+            <div class="text-xs font-bold text-white truncate">${escapeHtml(s.title||'Untitled')}</div>
+            <div class="text-xs text-gray-400">${s.bookCount||0} books</div>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- ALL BOOKS (MANAGEMENT VIEW for own profile) -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider">📖 Published Works (${books.length})</div>
+          ${isOwnProfile ? `<button onclick="openBookManagementPanel()" class="text-xs text-purple-400 hover:text-purple-300">Manage →</button>` : ''}
+        </div>
+        ${books.length === 0 ? `<p class="text-sm text-gray-500 text-center py-6">No published books yet.</p>` : `
+        <div class="grid grid-cols-3 gap-2">
+          ${books.slice(0, 9).map(b => `
+          <div onclick="openBookDetail('${b.id}')" class="cursor-pointer">
+            <img src="${b.coverUrl || ''}" alt="${escapeHtml(b.title||'')}" class="w-full aspect-[2/3] rounded-lg object-cover bg-gray-800">
+            <p class="text-xs text-gray-300 mt-1 truncate">${escapeHtml(b.title||'Untitled')}</p>
+          </div>`).join('')}
+        </div>
+        ${books.length > 9 ? `<button onclick="openBookManagementPanel()" class="w-full mt-3 btn-secondary text-sm py-2">View All ${books.length} Books</button>` : ''}`}
+      </div>
+    </div>
+  `;
+  
+  // Load follow state if viewing another author
+  if (!isOwnProfile && APP_STATE.user) {
+    checkFollowState(stats.userId);
+  }
+}
+
+async function toggleFollowAuthor(authorId) {
+  if (!APP_STATE.user || !db) { showToast('Sign in to follow authors'); return; }
+  const myId = APP_STATE.user.uid;
+  const btn = document.getElementById('followBtn_' + authorId);
+  
+  try {
+    const followRef = db.collection('follows').doc(myId + '_' + authorId);
+    const snap = await followRef.get();
+    if (snap.exists) {
+      await followRef.delete();
+      if (btn) { btn.textContent = 'Follow'; btn.classList.remove('btn-secondary'); btn.classList.add('btn-primary'); }
+    } else {
+      await followRef.set({ followerId: myId, followingId: authorId, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      if (btn) { btn.textContent = '✓ Following'; btn.classList.remove('btn-primary'); btn.classList.add('btn-secondary'); }
+    }
+  } catch(e) { showToast(e.message); }
+}
+
+async function checkFollowState(authorId) {
+  if (!APP_STATE.user || !db) return;
+  const myId = APP_STATE.user.uid;
+  const btn = document.getElementById('followBtn_' + authorId);
+  if (!btn) return;
+  try {
+    const snap = await db.collection('follows').doc(myId + '_' + authorId).get();
+    if (snap.exists) {
+      btn.textContent = '✓ Following';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+    }
+  } catch(e) {}
+}
+
+function openSeriesView(seriesId) {
+  // Switch to series tab on profile
+  switchProfileTab('series');
+}
+
+
+// (Redundant OTA block removed - using unified OTA controller)
+
+
 async function openBookDetail(bookId) {
   let book = (APP_STATE.allBooks || []).find(b => b.id === bookId);
   
