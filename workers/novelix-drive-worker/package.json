@@ -1,0 +1,16 @@
+{
+  "name": "novelix-drive-worker",
+  "version": "1.0.0",
+  "description": "NOVELIX 11.0 — Free Cloudflare Worker for Google Drive OAuth, Manuscript Verification & FCM Notifications",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "keywords": ["novelix", "google-drive", "oauth", "cloudflare-worker"],
+  "author": "NOVELIX Architecture Team",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.80.0"
+  }
+}

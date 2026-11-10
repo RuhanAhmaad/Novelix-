@@ -1,0 +1,13 @@
+name = "novelix-drive-worker"
+main = "src/index.js"
+compatibility_date = "2024-04-01"
+
+[vars]
+GOOGLE_DRIVE_CLIENT_ID = "23165793827-un6a2kh299r2e7rroj9nivoku5josvlh.apps.googleusercontent.com"
+CANONICAL_REDIRECT_URI = "https://novelix-drive-worker.ruhanahmad.workers.dev/oauth/callback"
+APP_DEEP_LINK = "novelix://drive-callback"
+FIREBASE_PROJECT_ID = "novelxa-48f15"
+
+# Note: Set the following secrets using wrangler:
+# wrangler secret put GOOGLE_DRIVE_CLIENT_SECRET
+# wrangler secret put TOKEN_ENCRYPTION_SECRET
