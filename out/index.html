@@ -767,6 +767,7 @@
       </button>
     </div>
   </div>
+  </div>
 </div>
 
 
@@ -5778,16 +5779,25 @@ function startFirestoreBooksFeed() {
     APP_STATE.realtimeBooksUnsub = null;
   }
 
-  // High Concurrency: Limit real-time snapshot to initial 15 works to conserve read quotas
+  // Zero-Index High Concurrency Real-Time Query: works without manual composite indexes
   APP_STATE.realtimeBooksUnsub = db.collection('books')
     .where('visibility', '==', 'public')
-    .where('publishStatus', '==', 'published')
-    .orderBy('createdAt', 'desc')
-    .limit(15)
+    .limit(30)
     .onSnapshot((snapshot) => {
       document.getElementById('headerLivePill')?.classList.remove('hidden');
       const books = [];
-      snapshot.forEach(doc => books.push({ id: doc.id, ...doc.data() }));
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        if (d.publishStatus !== 'draft' && d.status !== 'draft') {
+          books.push({ id: doc.id, ...d });
+        }
+      });
+      // In-memory sort by newest first (no composite index needed)
+      books.sort((a, b) => {
+        const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt || 0);
+        const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt || 0);
+        return tb - ta;
+      });
       APP_STATE.allBooks = books;
       if (snapshot.docs.length > 0) {
         APP_STATE.lastBookDoc = snapshot.docs[snapshot.docs.length - 1];
@@ -5831,9 +5841,19 @@ async function loadMoreBooks() {
 
 async function loadBooksFallbackFeed() {
   try {
-    const snap = await db.collection('books').where('publishStatus', '==', 'published').limit(30).get();
+    const snap = await db.collection('books').where('visibility', '==', 'public').limit(30).get();
     const books = [];
-    snap.forEach(doc => books.push({ id: doc.id, ...doc.data() }));
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.publishStatus !== 'draft' && d.status !== 'draft') {
+        books.push({ id: doc.id, ...d });
+      }
+    });
+    books.sort((a, b) => {
+      const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt || 0);
+      const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt || 0);
+      return tb - ta;
+    });
     APP_STATE.allBooks = books;
     renderHomeShelfViews();
   } catch(e) {
