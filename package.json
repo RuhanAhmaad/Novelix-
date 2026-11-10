@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "cap:sync": "cap sync android",
+    "admin": "node scripts/admin-cli.js",
     "build:apk": "bash scripts/build-apk.sh"
   },
   "dependencies": {
