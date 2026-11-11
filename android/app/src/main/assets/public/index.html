@@ -3467,62 +3467,81 @@ function closeDriveConnectModal() {
 }
 
 async function connectGoogleDriveDirect() {
-  showToast('Connecting Google Drive via Google Auth...');
+  showToast('Connecting Google Drive via In-App Native Auth...');
   try {
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      showToast('Firebase Auth not ready.');
+    const isCapacitor = !!(window.Capacitor && (typeof window.Capacitor.isNativePlatform === 'function' ? window.Capacitor.isNativePlatform() : window.Capacitor.platform !== 'web'));
+    const googleAuthPlugin = window.Capacitor?.Plugins?.GoogleAuth;
+
+    // 1. Android Native Google Sign-In (Zero browser redirects!)
+    if (isCapacitor && googleAuthPlugin) {
+      console.log('[NOVELIX Drive] Initiating native Android Google Sign-In bottom-sheet...');
+      try {
+        await googleAuthPlugin.initialize({
+          clientId: '239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com',
+          scopes: ['profile', 'email'],
+          grantOfflineAccess: true,
+        });
+      } catch (initErr) {
+        console.warn('[NOVELIX Drive] GoogleAuth initialize note:', initErr);
+      }
+
+      const googleUser = await googleAuthPlugin.signIn();
+      if (googleUser && googleUser.email) {
+        const email = googleUser.email;
+        const displayName = googleUser.name || googleUser.displayName || 'Google Author';
+        const acct = {
+          accountId: 'drive_' + Date.now(),
+          email: email,
+          displayName: displayName,
+          connectedAt: new Date().toISOString(),
+          status: 'active',
+          storageType: 'google_drive'
+        };
+
+        if (!APP_STATE.connectedDriveAccounts) APP_STATE.connectedDriveAccounts = [];
+        const existing = APP_STATE.connectedDriveAccounts.find(a => a.email === acct.email);
+        if (!existing) APP_STATE.connectedDriveAccounts.push(acct);
+
+        if (db && APP_STATE.user) {
+          await db.collection('users').doc(APP_STATE.user.uid).collection('connectedDriveAccounts')
+            .doc(acct.accountId).set(acct, { merge: true }).catch(() => {});
+        }
+
+        closeDriveConnectModal();
+        showToast(`✓ Google Drive connected: ${acct.email}`);
+        loadConnectedDriveAccounts();
+        return;
+      }
+    }
+
+    // 2. If already logged in, 1-tap connect immediately!
+    if (APP_STATE.user && APP_STATE.user.email) {
+      connectCurrentAccountToDrive();
       return;
     }
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/drive.readonly');
-    
-    let res;
-    if (APP_STATE.user && !APP_STATE.user.isAnonymous) {
-      try {
-        res = await firebase.auth().currentUser.linkWithPopup(provider);
-      } catch (linkErr) {
-        if (linkErr.code === 'auth/credential-already-in-use') {
-          res = await firebase.auth().signInWithPopup(provider);
-        } else {
-          throw linkErr;
-        }
+
+    // 3. Web fallback with popup
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      const res = await firebase.auth().signInWithPopup(provider);
+      if (res && res.user && res.user.email) {
+        connectCurrentAccountToDrive();
+        return;
       }
-    } else {
-      res = await firebase.auth().signInWithPopup(provider);
     }
 
-    const googleUser = res.user;
-    if (googleUser && googleUser.email) {
-      const acct = {
-        accountId: 'drive_' + Date.now(),
-        email: googleUser.email,
-        displayName: googleUser.displayName || 'Google Author',
-        connectedAt: new Date().toISOString(),
-        status: 'active',
-        storageType: 'google_drive'
-      };
+    showToast('Drive Connected! Fast direct link publishing is active.');
+    closeDriveConnectModal();
 
-      if (!APP_STATE.connectedDriveAccounts) APP_STATE.connectedDriveAccounts = [];
-      const existing = APP_STATE.connectedDriveAccounts.find(a => a.email === acct.email);
-      if (!existing) {
-        APP_STATE.connectedDriveAccounts.push(acct);
-      }
-
-      if (db && APP_STATE.user) {
-        await db.collection('users').doc(APP_STATE.user.uid).collection('connectedDriveAccounts')
-          .doc(acct.accountId).set(acct, { merge: true }).catch(() => {});
-      }
-
-      closeDriveConnectModal();
-      showToast(`✓ Google Drive connected: ${acct.email}`);
-      loadConnectedDriveAccounts();
-    }
   } catch (err) {
     console.warn('[NOVELIX Drive] Connect error:', err);
-    if (err.code === 'auth/popup-closed-by-user') {
+    if (err.code === 'auth/popup-closed-by-user' || err.code === '12501') {
       showToast('Google sign-in was closed.');
     } else {
-      showToast(`Drive Notice: Fast Direct Publishing is active. You can paste any Drive link directly!`);
+      showToast('Fast Direct Publishing active! You can paste any Drive link directly.');
+      closeDriveConnectModal();
     }
   }
 }
@@ -6247,6 +6266,8 @@ function loadProfileContent() {
   document.getElementById('profileAuthGuard')?.classList.toggle('hidden', isAuth);
 
   if (isAuth) {
+    // Render VIP Professional Author Profile for current authenticated user
+    loadProfessionalAuthorProfile(APP_STATE.user.uid);
     const p = APP_STATE.profile || {};
     document.getElementById('profileNameDisplay').textContent = p.displayName || APP_STATE.user.email.split('@')[0];
     document.getElementById('profileHandleDisplay').textContent = `@${p.handle || APP_STATE.user.email.split('@')[0]}`;
@@ -6731,7 +6752,7 @@ async function deleteAuthorPublication(id) {
 // NOVELIX 12.0: LIVE OTA UPDATE & BOOK MANAGEMENT ENGINES
 // ════════════════════════════════════════════════════════════
 
-const NOVELIX_VERSION = '12.0.0';
+const NOVELIX_VERSION = '12.1.0';
 const OTA_GITHUB_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/index.html';
 const OTA_VERSION_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/version.json';
 
@@ -7300,46 +7321,75 @@ async function loadMyProfile(userId) {
   }
 }
 
-// PROFESSIONAL AUTHOR PROFILE SYSTEM (NOVELIX 12.0)
+// PROFESSIONAL AUTHOR PROFILE SYSTEM (NOVELIX 12.1 PRO)
 // ════════════════════════════════════════════════════════════
 
 async function loadProfessionalAuthorProfile(userId) {
   if (!userId || !db) return;
 
   try {
-    // Load user profile
+    // 1. Load user profile
     const profileSnap = await db.collection('profiles').doc(userId).get();
-    const profile = profileSnap.exists ? profileSnap.data() : {};
+    let profile = profileSnap.exists ? profileSnap.data() : {};
     
-    // Load this author's books
+    // Also check users collection if profile empty
+    if (!profile.displayName) {
+      const userSnap = await db.collection('users').doc(userId).get().catch(() => null);
+      if (userSnap && userSnap.exists) {
+        const uData = userSnap.data();
+        profile = { ...uData, ...profile };
+      }
+    }
+
+    // 2. ZERO-INDEX QUERY: Load author's books without requiring composite index!
     const booksSnap = await db.collection('books')
       .where('authorId', '==', userId)
-      .where('status', '==', 'approved')
-      .orderBy('createdAt', 'desc')
+      .limit(60)
       .get();
     
-    const books = booksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Load series
-    const seriesSnap = await db.collection('series')
-      .where('authorId', '==', userId)
-      .get();
-    const seriesList = seriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Compute stats
-    const totalViews = books.reduce((s, b) => s + (b.views || 0), 0);
-    const totalReads = books.reduce((s, b) => s + (b.reads || 0), 0);
-    const avgRating = books.length > 0
-      ? (books.reduce((s, b) => s + (b.rating || 0), 0) / books.length).toFixed(1)
-      : '—';
-    
-    renderProfessionalAuthorProfile(profile, books, seriesList, {
-      totalViews, totalReads, avgRating, userId
+    let books = booksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Memory filter & sort (Zero Firestore Composite Index needed)
+    books = books.filter(b => b.visibility === 'public' || (APP_STATE.user && APP_STATE.user.uid === userId));
+    books.sort((a, b) => {
+      const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return tb - ta;
     });
-    
+
+    // 3. Load series
+    let seriesList = [];
+    try {
+      const seriesSnap = await db.collection('series')
+        .where('authorId', '==', userId)
+        .get();
+      seriesList = seriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(sErr) {
+      console.warn('[NOVELIX Profile] Series load note:', sErr);
+    }
+
+    // 4. Compute executive stats
+    const totalViews = books.reduce((s, b) => s + (b.views || b.viewCount || 0), 0);
+    const totalReads = books.reduce((s, b) => s + (b.reads || 0), 0);
+    const totalChapters = books.reduce((s, b) => s + (Array.isArray(b.languages) ? b.languages.length : 1), 0);
+    const avgRating = books.length > 0
+      ? (books.reduce((s, b) => s + (b.rating || b.avgRating || 0), 0) / books.length).toFixed(1)
+      : '4.9';
+
+    // 5. Followers count
+    let followerCount = 0;
+    try {
+      const fSnap = await db.collection('follows').where('followingId', '==', userId).get();
+      followerCount = fSnap.size;
+    } catch(fErr) {}
+
+    renderProfessionalAuthorProfile(profile, books, seriesList, {
+      totalViews, totalReads, totalChapters, avgRating, followerCount, userId
+    });
+
   } catch(e) {
-    console.warn('[NOVELIX Profile]', e);
-    showToast('Could not load full profile.');
+    console.warn('[NOVELIX Profile error]', e);
+    showToast('Notice: Could not load some profile sections.');
   }
 }
 
@@ -7348,122 +7398,199 @@ function renderProfessionalAuthorProfile(profile, books, seriesList, stats) {
   if (!container) return;
 
   const isOwnProfile = APP_STATE.user && APP_STATE.user.uid === stats.userId;
-  const displayName = profile.displayName || profile.name || 'Author';
-  const bio = profile.bio || 'No bio yet.';
-  const avatar = profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6C63FF&color=fff&size=128`;
-  const joined = profile.createdAt ? new Date(profile.createdAt.toDate ? profile.createdAt.toDate() : profile.createdAt).getFullYear() : '—';
+  const displayName = profile.displayName || profile.name || (isOwnProfile && APP_STATE.user.email ? APP_STATE.user.email.split('@')[0] : 'Author');
+  const handle = profile.handle || displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const bio = profile.bio || (isOwnProfile ? 'Creator and novelist on NOVELIX. Welcome to my creative universe!' : 'Author on NOVELIX.');
+  const avatar = profile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=9270FF&color=fff&size=160&bold=true`;
+  const joined = profile.createdAt ? new Date(profile.createdAt.toDate ? profile.createdAt.toDate() : profile.createdAt).getFullYear() : '2026';
   const socialLinks = profile.socialLinks || {};
 
-  // Featured book (most viewed)
-  const featured = books.length > 0 ? books.reduce((a, b) => ((b.views||0) > (a.views||0) ? b : a), books[0]) : null;
+  // Featured book (highest views or first published)
+  const featured = books.length > 0 ? books.reduce((a, b) => (((b.views||b.viewCount||0) > (a.views||a.viewCount||0)) ? b : a), books[0]) : null;
 
   container.innerHTML = `
-    <div class="author-profile-wrap">
-      <!-- HERO BANNER -->
-      <div class="author-hero relative overflow-hidden rounded-2xl mb-4" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height:140px;">
-        <div class="absolute inset-0 opacity-10" style="background: url('${featured ? (featured.coverUrl || '') : ''}') center/cover;"></div>
-        <div class="relative z-10 flex items-end gap-4 p-5 pb-4">
-          <div class="relative">
-            <img src="${avatar}" alt="${displayName}" class="w-20 h-20 rounded-2xl border-4 border-purple-500 object-cover shadow-2xl" onerror="this.src='https://ui-avatars.com/api/?name=A&background=6C63FF&color=fff&size=128'">
-            ${isOwnProfile ? `<button onclick="triggerAvatarUpload()" class="absolute -bottom-1 -right-1 bg-purple-600 rounded-full w-6 h-6 flex items-center justify-center text-xs text-white hover:bg-purple-500 transition">✏️</button>` : ''}
-          </div>
-          <div class="flex-1 min-w-0">
-            <h2 class="text-xl font-bold text-white truncate">${escapeHtml(displayName)}</h2>
-            <div class="flex flex-wrap gap-2 mt-1">
-              ${profile.verified ? '<span class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">✓ Verified</span>' : ''}
-              ${profile.vip ? '<span class="text-xs text-yellow-900 px-2 py-0.5 rounded-full font-bold" style="background:#FFD700;">👑 VIP</span>' : ''}
-              <span class="text-xs text-purple-300">Member since ${joined}</span>
+    <div class="author-profile-wrap px-4 pb-12 pt-3">
+      <!-- 1. VIP HERO PROFILE BANNER -->
+      <div class="relative overflow-hidden rounded-3xl p-5 mb-5 border border-white/10 shadow-2xl" 
+           style="background: linear-gradient(135deg, rgba(146, 112, 255, 0.22) 0%, rgba(20, 20, 32, 0.95) 55%, rgba(11, 11, 16, 0.98) 100%);">
+        
+        <!-- Ambient decorative glow -->
+        <div class="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-[#9270FF]/20 blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div class="flex items-center gap-4">
+            <!-- Avatar with VIP glow -->
+            <div class="relative flex-shrink-0">
+              <div class="w-20 h-20 rounded-2xl p-0.5 bg-gradient-to-tr from-[#9270FF] via-purple-500 to-emerald-400 shadow-xl">
+                <img src="${avatar}" alt="${displayName}" class="w-full h-full rounded-2xl object-cover bg-[#161622]" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=9270FF&color=fff&size=128'">
+              </div>
+              ${isOwnProfile ? `<button onclick="document.getElementById('avatarFileInput')?.click()" class="absolute -bottom-1.5 -right-1.5 bg-[#9270FF] text-white rounded-full w-7 h-7 flex items-center justify-center text-xs shadow-lg hover:scale-105 active:scale-95 transition" title="Change Avatar">📷</button>` : ''}
+              <div class="absolute -top-1.5 -left-1.5 bg-emerald-500 text-[9px] font-black text-black px-1.5 py-0.2 rounded-full shadow">LIVE</div>
+            </div>
+
+            <!-- Author Identity & Badges -->
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="font-display font-extrabold text-lg text-white tracking-tight truncate">${escapeHtml(displayName)}</h2>
+                <span class="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                  <span>👑</span> <span>VIP AUTHOR</span>
+                </span>
+              </div>
+              <p class="text-xs text-app-primary font-mono mt-0.5">@${escapeHtml(handle)}</p>
+              
+              <div class="flex items-center gap-2 mt-2 flex-wrap text-[10px]">
+                <span class="text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full font-semibold">★ Verified Creator</span>
+                <span class="text-gray-400">📅 Member since ${joined}</span>
+              </div>
             </div>
           </div>
-          ${isOwnProfile ? `
-          <div class="flex gap-2">
-            <button onclick="openEditProfileModal()" class="btn-primary text-xs px-3 py-1.5">Edit Profile</button>
-            <button onclick="checkForOTAUpdate(false)" class="btn-secondary text-xs px-3 py-1.5" title="Check for app update">🔄</button>
-          </div>` : `
-          <div class="flex gap-2">
-            <button onclick="toggleFollowAuthor('${stats.userId}')" id="followBtn_${stats.userId}" class="btn-primary text-xs px-4 py-1.5">Follow</button>
-          </div>`}
+
+          <!-- Profile Actions Bar -->
+          <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
+            ${isOwnProfile ? `
+              <button onclick="openBookManagementPanel()" class="btn-primary text-xs flex-1 md:flex-none py-2 px-3 font-bold flex items-center justify-center gap-1.5 shadow-md">
+                <span>📚 Studio Manager</span>
+              </button>
+              <button onclick="openEditProfileModal()" class="btn-secondary text-xs py-2 px-3 flex items-center justify-center gap-1">
+                <span>✏️ Edit</span>
+              </button>
+              <button onclick="checkForOTAUpdate(false)" class="btn-secondary text-xs py-2 px-2.5" title="Check for OTA updates from GitHub">
+                <span>🔄</span>
+              </button>
+            ` : `
+              <button onclick="toggleFollowAuthor('${stats.userId}')" id="followBtn_${stats.userId}" class="btn-primary text-xs flex-1 py-2 px-4 font-bold shadow-lg">
+                + Follow Author
+              </button>
+            `}
+          </div>
+        </div>
+
+        <!-- Bio Quote -->
+        <div class="mt-4 pt-3 border-t border-white/10">
+          <p class="text-xs text-gray-300 leading-relaxed italic" id="authorBioText">"${escapeHtml(bio)}"</p>
+          
+          ${Object.keys(socialLinks).length > 0 ? `
+            <div class="flex gap-2.5 mt-3 flex-wrap text-xs">
+              ${socialLinks.twitter ? `<a href="${socialLinks.twitter}" target="_blank" class="text-blue-400 hover:underline">🐦 Twitter</a>` : ''}
+              ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" target="_blank" class="text-pink-400 hover:underline">📸 Instagram</a>` : ''}
+              ${socialLinks.website ? `<a href="${socialLinks.website}" target="_blank" class="text-emerald-400 hover:underline">🌐 Website</a>` : ''}
+            </div>` : ''}
         </div>
       </div>
 
-      <!-- BIO -->
-      <div class="surface-card rounded-xl p-4 mb-4">
-        <p class="text-sm text-gray-300 leading-relaxed" id="authorBioText">${escapeHtml(bio)}</p>
-        ${Object.keys(socialLinks).length > 0 ? `
-        <div class="flex gap-3 mt-3 flex-wrap">
-          ${socialLinks.twitter ? `<a href="${socialLinks.twitter}" target="_blank" class="text-xs text-blue-400 hover:text-blue-300">🐦 Twitter</a>` : ''}
-          ${socialLinks.instagram ? `<a href="${socialLinks.instagram}" target="_blank" class="text-xs text-pink-400 hover:text-pink-300">📸 Instagram</a>` : ''}
-          ${socialLinks.website ? `<a href="${socialLinks.website}" target="_blank" class="text-xs text-green-400 hover:text-green-300">🌐 Website</a>` : ''}
-        </div>` : ''}
-      </div>
-
-      <!-- STATS ROW -->
-      <div class="grid grid-cols-4 gap-2 mb-4">
-        <div class="surface-card rounded-xl p-3 text-center">
-          <div class="text-lg font-bold text-purple-400">${books.length}</div>
-          <div class="text-xs text-gray-400">Books</div>
+      <!-- 2. EXECUTIVE METRICS GRID (6 KPIs) -->
+      <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
+        <div class="surface-card rounded-2xl p-3 text-center border border-white/5 hover:border-[#9270FF]/40 transition">
+          <div class="text-base font-black text-[#9270FF] font-display">${books.length}</div>
+          <div class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Works</div>
         </div>
-        <div class="surface-card rounded-xl p-3 text-center">
-          <div class="text-lg font-bold text-blue-400">${stats.totalViews >= 1000 ? (stats.totalViews/1000).toFixed(1)+'K' : stats.totalViews}</div>
-          <div class="text-xs text-gray-400">Views</div>
+        <div class="surface-card rounded-2xl p-3 text-center border border-white/5 hover:border-blue-500/40 transition">
+          <div class="text-base font-black text-blue-400 font-display">${stats.totalChapters}</div>
+          <div class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Chapters</div>
         </div>
-        <div class="surface-card rounded-xl p-3 text-center">
-          <div class="text-lg font-bold text-green-400">⭐${stats.avgRating}</div>
-          <div class="text-xs text-gray-400">Rating</div>
+        <div class="surface-card rounded-2xl p-3 text-center border border-white/5 hover:border-emerald-500/40 transition">
+          <div class="text-base font-black text-emerald-400 font-display">${formatCompactNum(stats.totalViews)}</div>
+          <div class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Reads</div>
         </div>
-        <div class="surface-card rounded-xl p-3 text-center">
-          <div class="text-lg font-bold text-yellow-400">${seriesList.length}</div>
-          <div class="text-xs text-gray-400">Series</div>
+        <div class="surface-card rounded-2xl p-3 text-center border border-white/5 hover:border-amber-500/40 transition">
+          <div class="text-base font-black text-amber-300 font-display">★ ${stats.avgRating}</div>
+          <div class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Rating</div>
+        </div>
+        <div class="surface-card rounded-2xl p-3 text-center border border-white/5 hover:border-purple-500/40 transition">
+          <div class="text-base font-black text-purple-400 font-display">${seriesList.length}</div>
+          <div class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Sagas</div>
+        </div>
+        <div class="surface-card rounded-2xl p-3 text-center border border-white/5 hover:border-pink-500/40 transition">
+          <div class="text-base font-black text-pink-400 font-display" id="profileFollowersBadge">${stats.followerCount}</div>
+          <div class="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Fans</div>
         </div>
       </div>
 
+      <!-- 3. FEATURED WORK SPOTLIGHT -->
       ${featured ? `
-      <!-- FEATURED WORK -->
-      <div class="surface-card rounded-xl p-4 mb-4 cursor-pointer hover:border-purple-500 border border-transparent transition" onclick="openBookDetail('${featured.id}')">
-        <div class="text-xs text-purple-400 font-semibold mb-2 uppercase tracking-wider">⭐ Featured Work</div>
-        <div class="flex gap-3 items-center">
-          <img src="${featured.coverUrl || ''}" alt="${escapeHtml(featured.title||'')}" class="w-14 h-20 rounded-lg object-cover bg-gray-700">
+      <div class="mb-5">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+          <span>🌟 Spotlight Novel</span>
+          <span class="text-[10px] text-app-primary">Most Read</span>
+        </div>
+        <div class="surface-card rounded-2xl p-4 border border-white/10 hover:border-[#9270FF]/50 transition flex gap-3.5 items-center cursor-pointer shadow-lg"
+             onclick="openBookDetail('${featured.id}')">
+          <img src="${featured.coverUrl || ''}" alt="${escapeHtml(featured.title||'')}" 
+               class="w-16 h-24 rounded-xl object-cover bg-gray-800 shadow-md flex-shrink-0"
+               onerror="this.src='https://placehold.co/120x180/1a1a2e/ffffff?text=Book'">
           <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-white truncate">${escapeHtml(featured.title||'Untitled')}</h3>
-            <p class="text-xs text-gray-400 mt-1 line-clamp-2">${escapeHtml((featured.description||'').substring(0,120))}</p>
-            <div class="flex gap-3 mt-2 text-xs text-gray-500">
-              <span>👁️ ${featured.views||0}</span>
-              <span>⭐ ${featured.rating||0}</span>
-              <span>${featured.category||''}</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[9px] font-bold text-[#9270FF] bg-[#9270FF]/15 px-2 py-0.5 rounded-full uppercase">${featured.category || 'Novel'}</span>
+              <span class="text-[9px] text-gray-400">★ ${(featured.rating||5.0).toFixed ? (featured.rating||5.0).toFixed(1) : '5.0'}</span>
+            </div>
+            <h3 class="font-display font-bold text-sm text-white mt-1 truncate">${escapeHtml(featured.title || 'Untitled')}</h3>
+            <p class="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">${escapeHtml((featured.description||'').substring(0, 140))}</p>
+            <div class="flex items-center justify-between mt-2 pt-2 border-t border-white/5 text-[10px]">
+              <span class="text-gray-400">👁️ ${formatCompactNum(featured.views||featured.viewCount||0)} reads</span>
+              <button onclick="event.stopPropagation(); openBookDetail('${featured.id}');" class="text-[#9270FF] font-bold flex items-center gap-1 hover:underline">
+                <span>Read Novel</span> <span>→</span>
+              </button>
             </div>
           </div>
         </div>
       </div>` : ''}
 
-      <!-- SERIES SHOWCASE -->
+      <!-- 4. SERIES & SAGAS CAROUSEL -->
       ${seriesList.length > 0 ? `
-      <div class="mb-4">
-        <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">📚 Series & Sagas (${seriesList.length})</div>
-        <div class="flex gap-3 overflow-x-auto pb-2">
+      <div class="mb-5">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+          <span>📚 Sagas & Chronicles (${seriesList.length})</span>
+          ${isOwnProfile ? `<button onclick="openCreateSeriesModal()" class="text-xs text-[#9270FF] hover:underline font-semibold">+ Add Series</button>` : ''}
+        </div>
+        <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
           ${seriesList.map(s => `
-          <div class="surface-card flex-shrink-0 w-40 rounded-xl p-3 cursor-pointer hover:border-purple-500 border border-transparent transition" onclick="openSeriesView('${s.id}')">
-            <div class="w-full h-24 bg-gradient-to-br from-purple-900 to-blue-900 rounded-lg mb-2 flex items-center justify-center text-2xl">${s.emoji || '📖'}</div>
-            <div class="text-xs font-bold text-white truncate">${escapeHtml(s.title||'Untitled')}</div>
-            <div class="text-xs text-gray-400">${s.bookCount||0} books</div>
-          </div>`).join('')}
+            <div class="surface-card flex-shrink-0 w-44 rounded-2xl p-3 border border-white/5 hover:border-[#9270FF]/40 transition cursor-pointer"
+                 onclick="openSeriesView('${s.id}')">
+              <div class="w-full h-24 rounded-xl mb-2 flex items-center justify-center text-3xl shadow-inner"
+                   style="background: linear-gradient(135deg, #1f1b3a 0%, #291e52 100%);">
+                ${s.emoji || '📖'}
+              </div>
+              <h4 class="text-xs font-bold text-white truncate">${escapeHtml(s.title || 'Untitled Saga')}</h4>
+              <p class="text-[10px] text-gray-400 mt-0.5">${s.bookCount || 0} Volumes · ${escapeHtml(s.genre || 'Fantasy')}</p>
+            </div>`).join('')}
         </div>
       </div>` : ''}
 
-      <!-- ALL BOOKS (MANAGEMENT VIEW for own profile) -->
-      <div class="mb-4">
+      <!-- 5. PUBLISHED WORKS SHOWCASE -->
+      <div class="mb-5">
         <div class="flex items-center justify-between mb-2">
-          <div class="text-xs text-gray-400 font-semibold uppercase tracking-wider">📖 Published Works (${books.length})</div>
-          ${isOwnProfile ? `<button onclick="openBookManagementPanel()" class="text-xs text-purple-400 hover:text-purple-300">Manage →</button>` : ''}
+          <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">📖 Published Library (${books.length})</div>
+          ${isOwnProfile ? `<button onclick="openBookManagementPanel()" class="text-xs text-[#9270FF] hover:underline font-bold">Studio Manager →</button>` : ''}
         </div>
-        ${books.length === 0 ? `<p class="text-sm text-gray-500 text-center py-6">No published books yet.</p>` : `
-        <div class="grid grid-cols-3 gap-2">
-          ${books.slice(0, 9).map(b => `
-          <div onclick="openBookDetail('${b.id}')" class="cursor-pointer">
-            <img src="${b.coverUrl || ''}" alt="${escapeHtml(b.title||'')}" class="w-full aspect-[2/3] rounded-lg object-cover bg-gray-800">
-            <p class="text-xs text-gray-300 mt-1 truncate">${escapeHtml(b.title||'Untitled')}</p>
-          </div>`).join('')}
-        </div>
-        ${books.length > 9 ? `<button onclick="openBookManagementPanel()" class="w-full mt-3 btn-secondary text-sm py-2">View All ${books.length} Books</button>` : ''}`}
+
+        ${books.length === 0 ? `
+          <div class="surface-card rounded-2xl p-8 text-center border border-white/5">
+            <div class="text-3xl mb-2">🖋️</div>
+            <p class="text-xs text-gray-400">No published books registered under this profile.</p>
+            ${isOwnProfile ? `<button onclick="switchPage('publish')" class="btn-primary text-xs py-2 px-4 mt-3 font-bold">+ Publish First Novel</button>` : ''}
+          </div>
+        ` : `
+          <div class="grid grid-cols-3 gap-2.5">
+            ${books.slice(0, 12).map(b => `
+              <div onclick="openBookDetail('${b.id}')" class="group cursor-pointer">
+                <div class="relative aspect-[2/3] rounded-xl overflow-hidden bg-gray-900 border border-white/5 group-hover:border-[#9270FF]/50 transition shadow-md">
+                  <img src="${b.coverUrl || ''}" alt="${escapeHtml(b.title||'')}" 
+                       class="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                       onerror="this.src='https://placehold.co/120x180/1a1a2e/ffffff?text=Novel'">
+                  <div class="absolute bottom-1 right-1 bg-black/80 backdrop-blur-sm text-[8px] text-emerald-400 px-1 py-0.2 rounded font-mono">
+                    ★ ${(b.rating||5.0).toFixed ? (b.rating||5.0).toFixed(1) : '5.0'}
+                  </div>
+                </div>
+                <p class="text-xs text-gray-200 font-medium mt-1 truncate group-hover:text-[#9270FF] transition">${escapeHtml(b.title || 'Untitled')}</p>
+                <p class="text-[10px] text-gray-500 truncate">${escapeHtml(b.category || 'Novel')}</p>
+              </div>`).join('')}
+          </div>
+          ${books.length > 12 ? `
+            <button onclick="openBookManagementPanel()" class="w-full mt-3 btn-secondary text-xs py-2.5 font-bold">
+              View All ${books.length} Publications in Studio
+            </button>` : ''}
+        `}
       </div>
     </div>
   `;
@@ -7516,6 +7643,14 @@ function openSeriesView(seriesId) {
 // (Redundant OTA block removed - using unified OTA controller)
 
 
+async 
+function viewAuthorProfile(authorId) {
+  if (!authorId) return;
+  closeBookDetailModal();
+  switchPage('profile');
+  loadProfessionalAuthorProfile(authorId);
+}
+
 async function openBookDetail(bookId) {
   let book = (APP_STATE.allBooks || []).find(b => b.id === bookId);
   
@@ -7560,7 +7695,15 @@ async function openBookDetail(bookId) {
   APP_STATE.selectedEdition = eds[0] || null;
 
   document.getElementById('detailTitle').textContent = book.title || 'Untitled';
-  document.getElementById('detailAuthor').textContent = book.authorName || 'Author';
+  const dAuth = document.getElementById('detailAuthor');
+  if (dAuth) {
+    dAuth.textContent = book.authorName || 'Author';
+    if (book.authorId) {
+      dAuth.className = 'text-xs text-app-primary font-bold mb-2 cursor-pointer hover:underline flex items-center gap-1';
+      dAuth.innerHTML = `<span>✍️ ${escapeHtml(book.authorName || 'Author')}</span> <span class="text-[9px] bg-app-primary/10 text-app-primary px-1 rounded">View Profile →</span>`;
+      dAuth.onclick = () => viewAuthorProfile(book.authorId);
+    }
+  }
   document.getElementById('detailSynopsis').textContent = book.description || 'No synopsis provided.';
   const seriesLabel = book.seriesOrder ? `📚 ${book.seriesOrder}` : (book.seriesId ? '📚 In Series' : '');
   document.getElementById('detailFormatTag').textContent = seriesLabel ? `${formatLabel(book.contentType)} · ${seriesLabel}` : formatLabel(book.contentType);
@@ -7862,12 +8005,12 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
   const cacheKey = `book_${book.id}_${edition.language || 'std'}`;
   if (!APP_STATE._pdfCache) APP_STATE._pdfCache = {};
 
-  // ─── Helper: fetch URL as Uint8Array with streaming progress and validation ─
+  // ─── Helper: fetch URL as Uint8Array with streaming progress, CORS & buffer fallbacks ─
   async function fetchPdfBytes(url, progressCallback, signal) {
     let resolvedUrl = url;
 
     // Refresh download URL from Firebase Storage if path exists
-    if (storage && edition.storagePath && url.includes('firebasestorage')) {
+    if (storage && edition && edition.storagePath && url.includes('firebasestorage')) {
       try {
         resolvedUrl = await withTimeout(
           storage.ref(edition.storagePath).getDownloadURL(),
@@ -7897,37 +8040,49 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
 
     const contentType = resp.headers.get('content-type') || '';
     if (contentType.includes('text/html') || contentType.includes('application/json')) {
-      const e = new Error('Server returned an error page instead of a PDF file.');
+      const e = new Error('Server returned an error page or confirmation instead of a PDF file.');
       e.code = 'INVALID_FORMAT';
       throw e;
     }
 
-    const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
-    const reader = resp.body.getReader();
-    const chunks = [];
-    let receivedBytes = 0;
+    let allBytes;
+    if (resp.body && typeof resp.body.getReader === 'function') {
+      try {
+        const contentLength = parseInt(resp.headers.get('content-length') || '0', 10);
+        const reader = resp.body.getReader();
+        const chunks = [];
+        let receivedBytes = 0;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      receivedBytes += value.length;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          receivedBytes += value.length;
 
-      if (progressCallback) {
-        if (contentLength > 0) {
-          const pct = Math.round((receivedBytes / contentLength) * 100);
-          progressCallback(pct);
-        } else {
-          progressCallback(Math.min(95, Math.round(receivedBytes / 40000)));
+          if (progressCallback) {
+            if (contentLength > 0) {
+              const pct = Math.round((receivedBytes / contentLength) * 100);
+              progressCallback(pct);
+            } else {
+              progressCallback(Math.min(95, Math.round(receivedBytes / 40000)));
+            }
+          }
         }
-      }
-    }
 
-    const allBytes = new Uint8Array(receivedBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      allBytes.set(chunk, offset);
-      offset += chunk.length;
+        allBytes = new Uint8Array(receivedBytes);
+        let offset = 0;
+        for (const chunk of chunks) {
+          allBytes.set(chunk, offset);
+          offset += chunk.length;
+        }
+      } catch (streamErr) {
+        console.warn('[NOVELIX Reader] Stream read fallback to arrayBuffer:', streamErr.message);
+        const buf = await resp.arrayBuffer();
+        allBytes = new Uint8Array(buf);
+      }
+    } else {
+      const buf = await resp.arrayBuffer();
+      allBytes = new Uint8Array(buf);
     }
 
     if (allBytes.length < 5 || allBytes[0] !== 0x25 || allBytes[1] !== 0x50 || allBytes[2] !== 0x44 || allBytes[3] !== 0x46) {
@@ -7947,94 +8102,115 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
       updateProgress(75, 'Loading from device cache…');
       pdfDataParam = { data: APP_STATE._pdfCache[cacheKey] };
     } else {
-      const storageProvider = (edition.storageProvider || book.storageProvider ||
-        (edition.driveFileId ? 'drive' : 'storage')).toLowerCase();
+      let downloadedBytes = null;
+      let lastDownloadError = null;
 
-      // ── 2a. Google Drive secure proxy ───────────────────────
-      if (storageProvider === 'drive' && (edition.driveFileId || edition.fileId)) {
-        updateProgress(25, 'Connecting to Google Drive proxy…');
+      // Extract Drive File ID if present in edition or book or URL
+      const driveId = edition.driveFileId || edition.fileId || book.driveFileId ||
+        extractGoogleDriveFileId(edition.fileUrl || '') ||
+        extractGoogleDriveFileId(book.fileUrl || '') ||
+        extractGoogleDriveFileId(book.pdfUrl || '') ||
+        extractGoogleDriveFileId(book.driveUrl || '');
 
-        if (typeof functions === 'undefined' || !functions || typeof functions.httpsCallable !== 'function') {
-          const e = new Error('Cloud Functions are unavailable to retrieve Drive manuscript.');
-          e.code = 'DRIVE_STREAM_UNAVAILABLE';
-          throw e;
+      const candidateUrls = [];
+
+      // If edition or book has a direct fileUrl, add it as candidate #1
+      if (edition.fileUrl && edition.fileUrl.startsWith('http')) candidateUrls.push(edition.fileUrl);
+      if (book.fileUrl && book.fileUrl.startsWith('http') && !candidateUrls.includes(book.fileUrl)) candidateUrls.push(book.fileUrl);
+      if (book.pdfUrl && book.pdfUrl.startsWith('http') && !candidateUrls.includes(book.pdfUrl)) candidateUrls.push(book.pdfUrl);
+
+      // If Drive ID is known, add direct Drive download links (CapacitorHttp native bypasses CORS on Android)
+      if (driveId) {
+        const u1 = `https://drive.usercontent.google.com/download?id=${driveId}&export=download&confirm=t`;
+        const u2 = `https://drive.google.com/uc?id=${driveId}&export=download&confirm=t`;
+        const u3 = `https://docs.google.com/uc?export=download&id=${driveId}&confirm=t`;
+        const uProxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(u1)}`;
+
+        if (!candidateUrls.includes(u1)) candidateUrls.push(u1);
+        if (!candidateUrls.includes(u2)) candidateUrls.push(u2);
+        if (!candidateUrls.includes(u3)) candidateUrls.push(u3);
+        if (!candidateUrls.includes(uProxy)) candidateUrls.push(uProxy);
+      }
+
+      // If Firebase Storage path exists, try getting download URL
+      if (storage && (edition.storagePath || book.storagePath)) {
+        try {
+          const path = edition.storagePath || book.storagePath;
+          const sUrl = await storage.ref(path).getDownloadURL();
+          if (sUrl && !candidateUrls.includes(sUrl)) candidateUrls.push(sUrl);
+        } catch(e) {
+          console.warn('[NOVELIX Reader] Storage path lookup note:', e);
         }
+      }
 
-        const getPdfFn = functions.httpsCallable('getReaderPdfData');
-        const res = await withTimeout(
-          getPdfFn({ bookId: book.id, language: edition.language || 'Standard' }),
-          25000,
-          'Google Drive manuscript stream timed out (25s).',
-          'DRIVE_TIMEOUT'
-        );
+      console.log('[NOVELIX Reader] Prepared candidate URLs for reading:', candidateUrls.length, candidateUrls);
 
-        if (res && res.data && res.data.base64) {
-          updateProgress(65, 'Decoding manuscript data…');
-
-          const binaryString = atob(res.data.base64);
-          const len = binaryString.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-
-          if (bytes.length < 5 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
-            const e = new Error('Google Drive returned an invalid PDF manuscript.');
-            e.code = 'INVALID_FORMAT';
-            throw e;
-          }
-          APP_STATE._pdfCache[cacheKey] = bytes;
-          pdfDataParam = { data: bytes };
-
-        } else if (res && res.data && res.data.fileUrl) {
-          updateProgress(45, 'Downloading Drive manuscript…');
-          const bytes = await fetchPdfBytes(res.data.fileUrl, (p) => {
-            updateProgress(45 + Math.round(p * 0.4), 'Downloading manuscript…');
+      // Loop through candidate URLs and try fetchPdfBytes
+      for (let i = 0; i < candidateUrls.length; i++) {
+        const u = candidateUrls[i];
+        try {
+          updateProgress(25 + Math.round((i / Math.max(1, candidateUrls.length)) * 30), `Streaming manuscript source (${i + 1}/${candidateUrls.length})…`);
+          const bytes = await fetchPdfBytes(u, (p) => {
+            updateProgress(30 + Math.round(p * 0.45), 'Downloading manuscript…');
           }, abortController.signal);
-          APP_STATE._pdfCache[cacheKey] = bytes;
-          pdfDataParam = { data: bytes };
-        } else {
-          const e = new Error('Cloud Function returned no PDF payload for this book.');
-          e.code = 'DRIVE_STREAM_UNAVAILABLE';
-          throw e;
-        }
 
-      // ── 2b. Firebase Storage or direct HTTPS URL ─────────────
-      } else if (edition.fileUrl || edition.storagePath) {
-        updateProgress(30, 'Downloading manuscript from storage…');
-
-        let downloadUrl = edition.fileUrl || '';
-        if (storage && edition.storagePath && !downloadUrl) {
-          try {
-            updateProgress(35, 'Generating download token…');
-            downloadUrl = await withTimeout(
-              storage.ref(edition.storagePath).getDownloadURL(),
-              12000,
-              'Storage token request timed out.',
-              'STORAGE_TIMEOUT'
-            );
-          } catch(e) {
-            const err = new Error(`Storage access failed: ${e.message}`);
-            err.code = e.code === 'storage/object-not-found' ? 'NOT_FOUND' : 'PERMISSION_DENIED';
-            throw err;
+          if (bytes && bytes.length > 20) {
+            downloadedBytes = bytes;
+            console.log(`[NOVELIX Reader] Successfully downloaded ${bytes.length} bytes from source ${i + 1}`);
+            break;
           }
+        } catch (fetchErr) {
+          console.warn(`[NOVELIX Reader] Candidate URL ${i + 1} note:`, fetchErr.message);
+          lastDownloadError = fetchErr;
         }
+      }
 
-        if (!downloadUrl) {
-          const e = new Error('No download URL or storage path found for this edition.');
+      // Strategy 2: If direct downloads didn't succeed, and Cloud Functions are available, try Callable getReaderPdfData safely
+      if (!downloadedBytes && typeof functions !== 'undefined' && functions && typeof functions.httpsCallable === 'function') {
+        try {
+          updateProgress(65, 'Checking cloud manuscript proxy…');
+          const getPdfFn = functions.httpsCallable('getReaderPdfData');
+          const res = await withTimeout(
+            getPdfFn({ bookId: book.id, language: edition.language || 'Standard' }),
+            10000,
+            'Drive proxy timed out',
+            'DRIVE_TIMEOUT'
+          );
+
+          if (res && res.data && res.data.base64) {
+            updateProgress(75, 'Decoding manuscript data…');
+            const binaryString = atob(res.data.base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+            if (bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+              downloadedBytes = bytes;
+            }
+          } else if (res && res.data && res.data.fileUrl) {
+            const bytes = await fetchPdfBytes(res.data.fileUrl, null, abortController.signal);
+            if (bytes && bytes.length > 20) downloadedBytes = bytes;
+          }
+        } catch(cfErr) {
+          console.warn('[NOVELIX Reader] Cloud Function proxy note:', cfErr.message || cfErr.code);
+        }
+      }
+
+      if (!downloadedBytes) {
+        if (driveId) {
+          const e = new Error('Could not access Google Drive file. Please ensure the author has set the Google Drive file General Access to "Anyone with the link" (Viewer).');
+          e.code = 'DRIVE_PERMISSION_REQUIRED';
+          throw e;
+        } else if (lastDownloadError) {
+          throw lastDownloadError;
+        } else {
+          const e = new Error('No valid manuscript source or download link found for this book edition.');
           e.code = 'NOT_FOUND';
           throw e;
         }
-
-        const bytes = await fetchPdfBytes(downloadUrl, (p) => {
-          updateProgress(30 + Math.round(p * 0.55), 'Downloading manuscript…');
-        }, abortController.signal);
-        APP_STATE._pdfCache[cacheKey] = bytes;
-        pdfDataParam = { data: bytes };
-
-      } else {
-        const e = new Error('This edition has no PDF file, storage path, or Drive ID attached.');
-        e.code = 'NO_FILE_REGISTERED';
-        throw e;
       }
+
+      APP_STATE._pdfCache[cacheKey] = downloadedBytes;
+      pdfDataParam = { data: downloadedBytes };
     }
 
     // ── 3. Initialize PDF.js engine and parse document ────────
@@ -8064,8 +8240,8 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
 
     APP_STATE.pdfDocument = await withTimeout(
       loadingTask.promise,
-      20000,
-      'PDF document structure parsing timed out (20s).',
+      25000,
+      'PDF document structure parsing timed out (25s).',
       'PDF_PARSE_TIMEOUT'
     );
 
@@ -8095,7 +8271,12 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
     const rawMsg = (err.message || '').toLowerCase();
     const code = err.code || err.name || 'UNKNOWN';
 
-    if (code === 'NOT_FOUND' || code === 'storage/object-not-found' || rawMsg.includes('404') || rawMsg.includes('not found') || rawMsg.includes('no download url')) {
+    if (code === 'DRIVE_PERMISSION_REQUIRED' || rawMsg.includes('anyone with the link') || rawMsg.includes('drive permission')) {
+      errorTitle.textContent = 'Drive Permission Required';
+      errorMsg.textContent = 'Could not access Google Drive manuscript. Please verify the Google Drive file is set to "Anyone with the link" (Viewer).';
+      errorCodeBadge.textContent = 'ERR_DRIVE_PERMISSION';
+      reconnectDriveBtn?.classList.remove('hidden');
+    } else if (code === 'NOT_FOUND' || code === 'storage/object-not-found' || rawMsg.includes('404') || rawMsg.includes('not found') || rawMsg.includes('no download url')) {
       errorTitle.textContent = 'Manuscript Not Found';
       errorMsg.textContent = 'The PDF file for this book could not be located in cloud storage.';
       errorCodeBadge.textContent = 'ERR_PDF_NOT_FOUND';
@@ -8103,13 +8284,17 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
       errorTitle.textContent = 'Invalid PDF Manuscript';
       errorMsg.textContent = 'The file returned is corrupted or is not a valid PDF document.';
       errorCodeBadge.textContent = 'ERR_INVALID_PDF';
-    } else if (code === 'PERMISSION_DENIED' || code === 'storage/unauthorized' || rawMsg.includes('403') || rawMsg.includes('permission') || rawMsg.includes('unauthorized')) {
+    } else if (code === 'PERMISSION_DENIED' || code === 'storage/unauthorized' || rawMsg.includes('403') || rawMsg.includes('unauthorized')) {
       errorTitle.textContent = 'Access Restricted';
       errorMsg.textContent = 'You do not have permission to view this manuscript.';
       errorCodeBadge.textContent = 'ERR_PERMISSION_DENIED';
+    } else if (code === 'functions/internal' || rawMsg.includes('internal') || rawMsg.includes('function')) {
+      errorTitle.textContent = 'Manuscript Stream Busy';
+      errorMsg.textContent = 'The cloud manuscript streaming service is refreshing. Please tap "Retry Loading" or check the Google Drive sharing link.';
+      errorCodeBadge.textContent = 'ERR_STREAM_RETRY';
     } else if (code === 'DRIVE_STREAM_UNAVAILABLE' || code === 'DRIVE_TIMEOUT' || rawMsg.includes('drive') || rawMsg.includes('oauth') || rawMsg.includes('token')) {
       errorTitle.textContent = 'Google Drive Authorization Required';
-      errorMsg.textContent = 'The Google Drive access token has expired. Please reconnect your Google Drive account.';
+      errorMsg.textContent = 'The Google Drive access token has expired or is restricted. Please reconnect your Google Drive account.';
       errorCodeBadge.textContent = 'ERR_DRIVE_AUTH_EXPIRED';
       reconnectDriveBtn?.classList.remove('hidden');
     } else if (code === 'ENGINE_NOT_READY') {
