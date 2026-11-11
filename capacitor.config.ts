@@ -25,7 +25,7 @@ const config: CapacitorConfig = {
       resizeOnFullScreen: true,
     },
     GoogleAuth: {
-      scopes: ['profile', 'email'],
+      scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file'],
       serverClientId: '239783323113-r33bjnuc153ghsgpshg8vp3mktqj6t36.apps.googleusercontent.com',
       forceCodeForRefreshToken: false,
     },
