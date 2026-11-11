@@ -4693,9 +4693,14 @@ function setupLogoTerminalTrigger() {
     if (now - APP_STATE.logoLastClickTime > 2000) APP_STATE.logoClicks = 0;
     APP_STATE.logoLastClickTime = now;
     APP_STATE.logoClicks++;
+    // Show tap progress feedback
+    if (APP_STATE.logoClicks >= 2 && APP_STATE.logoClicks < 5) {
+      showToast(`Admin access: ${APP_STATE.logoClicks}/5 taps`);
+    }
     if (APP_STATE.logoClicks >= 5) {
       APP_STATE.logoClicks = 0;
-      openTerminal();
+      showToast('👑 Opening VIP Admin Console...');
+      setTimeout(() => openAdminDashboard(), 150);
     }
   });
 }
@@ -6293,9 +6298,28 @@ function resetPublishForm() {
 
 function updatePublishAccessState() {
   const isAuth = !!APP_STATE.user;
-  document.getElementById('publishAuthGuard')?.classList.toggle('hidden', isAuth);
-  document.getElementById('publishFormContainer')?.classList.toggle('hidden', !isAuth);
-  if (isAuth) recalculateStorageQuota();
+  const authGuard = document.getElementById('publishAuthGuard');
+  const formContainer = document.getElementById('publishFormContainer');
+  if (authGuard) authGuard.classList.toggle('hidden', isAuth);
+  if (formContainer) {
+    // Always show if user is authenticated
+    formContainer.classList.toggle('hidden', !isAuth);
+    if (isAuth && formContainer.classList.contains('hidden')) {
+      formContainer.classList.remove('hidden');
+    }
+  }
+  if (isAuth) {
+    recalculateStorageQuota();
+    // Ensure edition row exists
+    const editionRows = document.getElementById('editionRows');
+    if (editionRows && !editionRows.children.length) {
+      addEditionRow && addEditionRow();
+    }
+    // Populate series dropdown
+    populatePublishSeriesDropdown && populatePublishSeriesDropdown();
+    // Sync drive publishing UI
+    syncPublishDriveAccountsUI && syncPublishDriveAccountsUI();
+  }
 }
 
 // ────────────────────────────────────────────────────────
@@ -7037,7 +7061,9 @@ async function saveAuthorSeries() {
     genre: genre,
     language: lang,
     coverUrl: coverUrl,
-    authorUid: APP_STATE.user.uid,
+    // authorId is required by Firestore security rule (rule checks authorId == request.auth.uid)
+    authorId: APP_STATE.user.uid,
+    authorUid: APP_STATE.user.uid,  // kept for backwards compat
     authorName: APP_STATE.profile?.displayName || APP_STATE.user.displayName || 'Author',
     bookCount: 0,
     books: [],
@@ -7073,9 +7099,16 @@ async function loadAuthorSeries() {
   container.innerHTML = '<div class="skeleton-box h-16 rounded-xl"></div>';
 
   try {
-    const snap = await db.collection('series')
-      .where('authorUid', '==', APP_STATE.user.uid)
+    // Query by authorId (new field, matches Firestore rules) with fallback to authorUid
+    let snap = await db.collection('series')
+      .where('authorId', '==', APP_STATE.user.uid)
       .get();
+    if (snap.empty) {
+      // Fallback: try old authorUid field
+      snap = await db.collection('series')
+        .where('authorUid', '==', APP_STATE.user.uid)
+        .get();
+    }
 
     if (snap.empty) {
       container.innerHTML = `
@@ -7294,7 +7327,7 @@ async function deleteAuthorPublication(id) {
 // NOVELIX 12.0: LIVE OTA UPDATE & BOOK MANAGEMENT ENGINES
 // ════════════════════════════════════════════════════════════
 
-const NOVELIX_VERSION = '12.4.0';
+const NOVELIX_VERSION = '12.5.0';
 const OTA_GITHUB_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/index.html';
 const OTA_VERSION_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/version.json';
 
@@ -8501,12 +8534,37 @@ async function launchActiveReader() {
   }
 
   if (!edition || (!edition.fileUrl && !edition.storagePath && !edition.driveFileId)) {
+    // Check if book has text content to display instead
+    const textContent = book.content || book.synopsis || book.description || '';
+    if (textContent && textContent.length > 50) {
+      // Render text content in reader
+      document.getElementById('readerLoadingOverlay')?.classList.add('hidden');
+      const canvas = document.getElementById('pdfRenderCanvas');
+      if (canvas) {
+        canvas.style.display = 'none';
+      }
+      // Show text in a readable format
+      let textContainer = document.getElementById('readerTextContent');
+      if (!textContainer) {
+        textContainer = document.createElement('div');
+        textContainer.id = 'readerTextContent';
+        textContainer.style.cssText = 'padding:24px;color:#F5F3FA;font-size:15px;line-height:1.8;white-space:pre-wrap;overflow-y:auto;max-height:calc(100vh - 120px);font-family:Georgia,serif;';
+        const readerBody = document.getElementById('readerBody') || canvas?.parentElement;
+        if (readerBody) readerBody.appendChild(textContainer);
+      }
+      textContainer.style.display = 'block';
+      textContainer.textContent = textContent;
+      document.getElementById('readerTotalPagesBadge').textContent = '/ 1';
+      document.getElementById('readerCurrentPageBadge').textContent = 'p. 1';
+      showToast('Reading text version of this book');
+      return;
+    }
     document.getElementById('readerLoadingOverlay')?.classList.add('hidden');
     const eo = document.getElementById('readerErrorOverlay');
     if (eo) eo.classList.remove('hidden');
     document.getElementById('readerErrorTitle').textContent = 'No Manuscript Attached';
     document.getElementById('readerErrorMessage').textContent =
-      'This book does not have an attached PDF file. The author may not have uploaded a manuscript edition yet.';
+      'This book does not have an attached PDF file yet. The author may upload it soon.';
     const badge = document.getElementById('readerErrorCodeBadge');
     if (badge) { badge.textContent = 'ERR_NO_MANUSCRIPT'; badge.classList.remove('hidden'); }
     document.getElementById('readerReconnectDriveBtn')?.classList.add('hidden');
@@ -8617,15 +8675,43 @@ async function loadPdfDocumentForReader(book, edition, targetPage) {
     if (status && statusText) statusText.textContent = status;
   }
 
+  // Dynamic load pdfjsLib if not yet available
+  if (typeof pdfjsLib === 'undefined') {
+    if (statusText) statusText.textContent = 'Loading PDF engine...';
+    updateProgress(5, 'Loading PDF engine...');
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = () => {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          }
+          resolve();
+        };
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      console.log('[NOVELIX Reader] pdfjsLib dynamically loaded.');
+    } catch(libErr) {
+      if (loadingOverlay) loadingOverlay.classList.add('hidden');
+      if (errorOverlay) errorOverlay.classList.remove('hidden');
+      if (errorTitle) errorTitle.textContent = 'PDF Reader Offline';
+      if (errorMsg) errorMsg.textContent = 'The PDF rendering library failed to load. Please check your internet connection and try again.';
+      if (errorCodeBadge) {
+        errorCodeBadge.textContent = 'ERR_PDF_LIB_OFFLINE';
+        errorCodeBadge.classList.remove('hidden');
+      }
+      return;
+    }
+  }
+  // Double-check after dynamic load attempt
   if (typeof pdfjsLib === 'undefined') {
     if (loadingOverlay) loadingOverlay.classList.add('hidden');
     if (errorOverlay) errorOverlay.classList.remove('hidden');
-    if (errorTitle) errorTitle.textContent = 'PDF Reader Offline';
-    if (errorMsg) errorMsg.textContent = 'The PDF rendering library is unavailable offline. Please check your network connection.';
-    if (errorCodeBadge) {
-      errorCodeBadge.textContent = 'ERR_PDF_LIB_OFFLINE';
-      errorCodeBadge.classList.remove('hidden');
-    }
+    if (errorTitle) errorTitle.textContent = 'PDF Reader Unavailable';
+    if (errorMsg) errorMsg.textContent = 'PDF engine unavailable. Please check your internet connection.';
     return;
   }
 
@@ -8991,7 +9077,17 @@ function reconnectDriveFromReader() {
   initiateGoogleDriveConnection();
 }
 
-// ─── ALIAS: navigateTo → switchPage ───────────────────────────
+// ─── ALIASES & SAFE GLOBALS ────────────────────────────────────
+// Prevent "X is not defined" ReferenceErrors from inline onclick handlers
+window.onerror = function(msg, src, line, col, err) {
+  if (msg && (msg.includes('is not defined') || msg.includes('is not a function'))) {
+    console.warn('[NOVELIX] Safe catch:', msg, 'at', src, line);
+    return true; // suppress the error UI
+  }
+  return false;
+};
+
+// Alias: navigateTo → switchPage ────────────────────────────
 function navigateTo(pageId) {
   switchPage(pageId);
 }
