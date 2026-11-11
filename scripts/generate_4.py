@@ -11,7 +11,7 @@ HTML_CONTENT = r"""<!DOCTYPE html>
   <!-- Fail-safe Early Watchdog -->
   <script>
     (function() {
-      window.__NOVELIX_VERSION__ = '12.2.0';
+      window.__NOVELIX_VERSION__ = '12.3.0';
       // ── Early Live OTA Bootloader ──
       try {
         var otaHtml = localStorage.getItem('novelix_ota_html');
@@ -1218,6 +1218,9 @@ HTML_CONTENT = r"""<!DOCTYPE html>
               </span>
               <span class="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded font-mono font-medium">Instant • No Phone Upload</span>
             </div>
+
+            <!-- Connected Google Drive Status & Quick Picker Banner -->
+            <div id="publishDriveConnectedBanner" class="mb-2"></div>
 
             <div>
               <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Paste Google Drive URL</label>
@@ -2552,10 +2555,27 @@ HTML_CONTENT = r"""<!DOCTYPE html>
         <div id="detailEditionsList" class="space-y-1.5"></div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="flex gap-2">
-        <button id="btnStartReading" onclick="launchActiveReader()" class="btn-primary text-xs flex-1 py-2.5 font-semibold">Start Reading</button>
-        <button id="btnBookmarkDetail" onclick="toggleDetailBookmark()" class="btn-secondary text-xs px-3 py-2.5">Bookmark</button>
+      <!-- Dual Action Reading Buttons: Read in App OR Read in Google Drive -->
+      <div class="space-y-2">
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btnReadInApp" onclick="launchActiveReader()" class="btn-primary text-xs py-3 font-bold flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(146,112,255,0.35)]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span>Read in App</span>
+          </button>
+          <button id="btnReadInDrive" onclick="openBookInGoogleDrive()" class="py-3 px-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+            <svg viewBox="0 0 24 24" class="w-4 h-4 fill-emerald-400"><path d="M12.01 1.99c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm-1.01 16.51l-4.5-4.5 1.41-1.41 3.09 3.09 7.09-7.09 1.41 1.41-8.5 8.5z"/></svg>
+            <span>Read in Drive</span>
+          </button>
+        </div>
+        <div class="flex gap-2">
+          <button id="btnBookmarkDetail" onclick="toggleDetailBookmark()" class="btn-secondary text-xs flex-1 py-2 font-medium flex items-center justify-center gap-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <span>Save to Library</span>
+          </button>
+          <button onclick="shareActiveBook()" class="btn-secondary text-xs px-3 py-2 flex items-center justify-center gap-1" title="Share Book">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -2586,6 +2606,11 @@ HTML_CONTENT = r"""<!DOCTYPE html>
       <!-- Bookmark Page Button -->
       <button onclick="toggleReaderBookmark()" id="readerBookmarkBtn" title="Bookmark Page" class="w-7 h-7 rounded-lg bg-[#181824] hover:bg-[#232334] border border-[#2B2B3E] flex items-center justify-center text-white transition-all">
         <svg id="readerBookmarkIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      </button>
+
+      <!-- Open in Google Drive Top Shortcut -->
+      <button onclick="openBookInGoogleDrive()" id="readerDriveTopBtn" title="Open in Google Drive" class="w-7 h-7 rounded-lg bg-[#181824] hover:bg-[#232334] border border-[#2B2B3E] flex items-center justify-center text-emerald-400 transition-all">
+        <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-current"><path d="M12.01 1.99c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm-1.01 16.51l-4.5-4.5 1.41-1.41 3.09 3.09 7.09-7.09 1.41 1.41-8.5 8.5z"/></svg>
       </button>
 
       <!-- Fullscreen Toggle -->
@@ -2625,6 +2650,10 @@ HTML_CONTENT = r"""<!DOCTYPE html>
       <div id="readerErrorCodeBadge" class="hidden text-[10px] font-mono text-app-secondary px-2.5 py-1 rounded bg-app-sub border border-app-border mb-4"></div>
       <div class="flex flex-wrap gap-2 justify-center">
         <button onclick="retryLoadReaderPdf()" class="btn-primary text-xs px-4 py-2">Retry Loading</button>
+        <button onclick="openBookInGoogleDrive()" class="btn-primary text-xs px-4 py-2 bg-emerald-600 hover:bg-emerald-500 border-none text-white font-bold flex items-center gap-1.5">
+          <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-current"><path d="M12.01 1.99c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm-1.01 16.51l-4.5-4.5 1.41-1.41 3.09 3.09 7.09-7.09 1.41 1.41-8.5 8.5z"/></svg>
+          <span>Read in Google Drive</span>
+        </button>
         <button id="readerReconnectDriveBtn" onclick="reconnectDriveFromReader()" class="hidden btn-secondary text-xs px-4 py-2 border-app-primary text-app-primary">Reconnect Drive</button>
         <button onclick="closeReaderModal(); if(APP_STATE.selectedBook) openBookDetail(APP_STATE.selectedBook.id);" class="btn-secondary text-xs px-4 py-2">Back to Details</button>
       </div>
@@ -3633,6 +3662,7 @@ async function connectGoogleDriveDirect() {
         closeDriveConnectModal();
         showToast(`✓ Google Drive connected with real access: ${acct.email}`);
         loadConnectedDriveAccounts();
+        syncPublishDriveAccountsUI();
         return;
       }
     }
@@ -3691,6 +3721,101 @@ async function connectGoogleDriveDirect() {
       showToast('Fast Direct Publishing active! You can paste any Drive link directly.');
       closeDriveConnectModal();
     }
+  }
+}
+
+function getEffectiveDriveAccounts() {
+  if (APP_STATE.connectedDriveAccounts && APP_STATE.connectedDriveAccounts.length > 0) {
+    return APP_STATE.connectedDriveAccounts;
+  }
+  const localToken = localStorage.getItem('novelix_active_drive_token');
+  if (localToken && APP_STATE.user && APP_STATE.user.email) {
+    const fallbackAcc = {
+      id: 'drive_active',
+      accountId: 'drive_active',
+      email: APP_STATE.user.email,
+      displayName: APP_STATE.user.displayName || 'Google Author',
+      accessToken: localToken,
+      status: 'active'
+    };
+    APP_STATE.connectedDriveAccounts = [fallbackAcc];
+    return [fallbackAcc];
+  }
+  return [];
+}
+
+function syncPublishDriveAccountsUI() {
+  const accounts = getEffectiveDriveAccounts();
+  const hasDrive = accounts.length > 0;
+
+  // 1. Update Drive Link Section banner (Option B)
+  const bannerEl = document.getElementById('publishDriveConnectedBanner');
+  if (bannerEl) {
+    if (hasDrive) {
+      bannerEl.classList.remove('hidden');
+      const email = accounts[0].email || 'Google Drive';
+      bannerEl.innerHTML = `
+        <div class="flex items-center justify-between p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs">
+          <div class="flex items-center gap-2 truncate">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span>
+            <span class="text-white font-medium truncate">Connected: ${escapeHtml(email)}</span>
+          </div>
+          <button type="button" onclick="openDrivePickerForPublish()" class="btn-primary text-[11px] px-3 py-1 font-semibold flex items-center gap-1.5 flex-shrink-0 shadow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Pick from My Drive</span>
+          </button>
+        </div>
+      `;
+    } else {
+      bannerEl.classList.remove('hidden');
+      bannerEl.innerHTML = `
+        <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#181824] border border-[#2B2B3E] text-xs">
+          <span class="text-app-muted truncate">Connect Google Drive to import files directly</span>
+          <button type="button" onclick="initiateGoogleDriveConnection()" class="btn-secondary text-[11px] px-2.5 py-1 text-app-primary border-app-primary/40 font-semibold flex-shrink-0">
+            <span>⚡ Connect Drive</span>
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  // 2. Update Edition Rows (Option A)
+  if (Array.isArray(APP_STATE.publishEditions)) {
+    APP_STATE.publishEditions.forEach((ed, idx) => {
+      const drivePanel = document.getElementById(`edDrivePanel-${idx}`);
+      if (!drivePanel) return;
+
+      if (hasDrive) {
+        ed.driveAccountId = ed.driveAccountId || accounts[0].id || accounts[0].accountId;
+        const driveOptions = accounts.map(a => `<option value="${a.id || a.accountId}">${escapeHtml(a.email || 'Drive Account')}</option>`).join('');
+        drivePanel.innerHTML = `
+          <div>
+            <label class="block text-[10px] text-app-muted uppercase font-semibold mb-1">Connected Drive Account</label>
+            <select id="edDriveAccountSelect-${idx}" class="w-full px-2.5 py-1.5 text-xs bg-[#171722] border border-[#262638] rounded-lg text-white" onchange="APP_STATE.publishEditions[${idx}].driveAccountId = this.value">
+              ${driveOptions}
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="openDrivePickerForEdition(${idx})" class="btn-secondary text-xs flex-1 py-2 flex items-center justify-center gap-1 font-semibold text-white">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-emerald-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Select Drive PDF
+            </button>
+            <button type="button" onclick="document.getElementById('edDriveUploadInput-${idx}').click()" class="btn-secondary text-xs flex-1 py-2 flex items-center justify-center gap-1 text-app-muted">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              Upload New
+            </button>
+          </div>
+          <input type="file" id="edDriveUploadInput-${idx}" accept=".pdf" class="hidden" onchange="handleEditionDriveUploadSelected(this, ${idx})">
+        `;
+      } else {
+        drivePanel.innerHTML = `
+          <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center space-y-1.5">
+            <p class="text-[11px] text-amber-300">No Google Drive account connected.</p>
+            <button type="button" onclick="initiateGoogleDriveConnection()" class="btn-primary text-xs px-3.5 py-1.5 font-bold">⚡ Connect Google Drive Now</button>
+          </div>
+        `;
+      }
+    });
   }
 }
 
@@ -3755,6 +3880,7 @@ async function loadConnectedDriveAccounts() {
 
     APP_STATE.connectedDriveAccounts = accounts;
     if (loadingEl) loadingEl.classList.add('hidden');
+    syncPublishDriveAccountsUI();
 
     // Update Multi-Account Picker in Modal
     const multiRow = document.getElementById('driveMultiAccountRow');
@@ -4027,16 +4153,33 @@ function filterDriveFileList(query) {
 }
 
 function openDrivePickerForPublish() {
-  if (!APP_STATE.connectedDriveAccounts.length) {
-    openSettingsModal();
-    switchSettingsSection('drive');
-    showToast('Please connect a Google Drive account first');
+  const accounts = getEffectiveDriveAccounts();
+  if (!accounts.length) {
+    showToast('Please connect your Google Drive account first');
+    initiateGoogleDriveConnection();
     return;
   }
-  browseDriveAccountFiles(APP_STATE.connectedDriveAccounts[0].id);
+  const accId = accounts[0].id || accounts[0].accountId;
+  browseDriveAccountFiles(accId);
 }
 
 async function importDriveFileToStudio(fileId, fileName, fileSize, token) {
+  // If in 'drive_link' publishing mode, auto-fill input and title!
+  if (APP_STATE.publishMethod === 'drive_link') {
+    const linkInput = document.getElementById('publishDriveLinkInput');
+    const titleInput = document.getElementById('publishTitleInput');
+    if (linkInput) {
+      linkInput.value = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+    }
+    if (titleInput && !titleInput.value.trim()) {
+      titleInput.value = fileName.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ');
+    }
+    validatePastedDriveLink();
+    closeDrivePickerModal();
+    switchPage('publish');
+    showToast(`✓ Selected "${fileName}" from Google Drive`);
+    return;
+  }
   const progressBar = document.getElementById('driveImportProgressBar');
   const progressText = document.getElementById('driveImportProgressText');
   if (progressBar) progressBar.classList.remove('hidden');
@@ -5789,7 +5932,6 @@ async function handlePublishSubmit(event, forceStatus) {
             uploadedAt: new Date().toISOString()
           });
         } else if (ed.storageProvider === 'drive' && ed.file) {
-          const base64 = await readFileAsBase64(ed.file);
           const acctId = ed.driveAccountId || (APP_STATE.connectedDriveAccounts[0]?.id);
           languages.push({
             language: ed.language,
@@ -5829,9 +5971,45 @@ async function handlePublishSubmit(event, forceStatus) {
       if (existing) { coverUrl = existing.coverUrl || ''; coverSize = existing.coverSize || 0; }
     }
 
+async function compressCoverForFastPublish(file) {
+  if (!file || !file.type.startsWith('image/')) return file;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX_W = 750;
+        let w = img.width;
+        let h = img.height;
+        if (w > MAX_W) {
+          h = Math.round((h * MAX_W) / w);
+          w = MAX_W;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          if (blob && blob.size < file.size) {
+            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.80);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
     if (coverFile) {
-      setButtonLoading('publishSubmitBtn', true, 'Uploading cover to ImgBB...');
-      coverUrl = await uploadMediaFile(coverFile, `covers/${bookId}/${Date.now()}.jpg`);
+      setButtonLoading('publishSubmitBtn', true, 'Optimizing & uploading cover...');
+      const fastCover = await compressCoverForFastPublish(coverFile);
+      coverUrl = await uploadMediaFile(fastCover, `covers/${bookId}/${Date.now()}.jpg`);
     }
     updatePublishStep(4, 'completed');
 
@@ -5941,15 +6119,14 @@ async function handlePublishSubmit(event, forceStatus) {
     }
     updatePublishStep(7, 'completed');
 
-    showToast(isEditing ? 'Publication updated successfully!' : 'Work published live to NOVELIX!');
+    showToast(isEditing ? '✓ Publication updated live!' : '⚡ Published live to NOVELIX!');
     APP_STATE.editingBookId = null;
     const submitBtn = document.getElementById('publishSubmitBtn');
     if (submitBtn) submitBtn.textContent = 'Publish Work';
 
-    setTimeout(() => {
-      resetPublishForm();
-      switchPage('home');
-    }, 1000);
+    // Instant seamless transition
+    resetPublishForm();
+    switchPage('home');
 
   } catch(err) {
     console.error('[NOVELIX Publish] Error:', err);
@@ -6950,7 +7127,7 @@ async function deleteAuthorPublication(id) {
 // NOVELIX 12.0: LIVE OTA UPDATE & BOOK MANAGEMENT ENGINES
 // ════════════════════════════════════════════════════════════
 
-const NOVELIX_VERSION = '12.2.0';
+const NOVELIX_VERSION = '12.3.0';
 const OTA_GITHUB_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/index.html';
 const OTA_VERSION_URL = 'https://raw.githubusercontent.com/RuhanAhmaad/Novelix-/main/out/version.json';
 
@@ -8032,6 +8209,63 @@ async function toggleDetailBookmark() {
 // ────────────────────────────────────────────────────────
 // NOVELIX 8.0 ROBUST MOBILE PDF READER CONTROLLER & ENGINE
 // ────────────────────────────────────────────────────────
+function openBookInGoogleDrive(bookId) {
+  const book = APP_STATE.selectedBook || (APP_STATE.allBooks || []).find(b => b.id === bookId);
+  if (!book) {
+    showToast('Please select a book first');
+    return;
+  }
+
+  const edition = APP_STATE.selectedEdition || (book.languages && book.languages[0]) || {};
+  const driveId = edition.driveFileId || edition.fileId || book.driveFileId ||
+    extractGoogleDriveFileId(edition.fileUrl || '') ||
+    extractGoogleDriveFileId(book.fileUrl || '') ||
+    extractGoogleDriveFileId(book.pdfUrl || '') ||
+    extractGoogleDriveFileId(book.driveUrl || '');
+
+  let driveUrl = '';
+  if (driveId) {
+    driveUrl = `https://drive.google.com/file/d/${driveId}/view?usp=sharing`;
+  } else if (edition.fileUrl && edition.fileUrl.startsWith('http')) {
+    driveUrl = edition.fileUrl;
+  } else if (book.fileUrl && book.fileUrl.startsWith('http')) {
+    driveUrl = book.fileUrl;
+  }
+
+  if (!driveUrl) {
+    showToast('No Google Drive manuscript URL attached to this book.');
+    return;
+  }
+
+  console.log('[NOVELIX Reader] Opening in Google Drive:', driveUrl);
+  showToast('Opening in Google Drive...');
+
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+      window.Capacitor.Plugins.Browser.open({ url: driveUrl });
+      return;
+    }
+  } catch(e) {}
+
+  const w = window.open(driveUrl, '_system');
+  if (!w) window.location.href = driveUrl;
+}
+
+function shareActiveBook() {
+  const book = APP_STATE.selectedBook;
+  if (!book) return;
+  const url = `https://novelix.app/book/${book.id}`;
+  if (navigator.share) {
+    navigator.share({
+      title: book.title,
+      text: `Read "${book.title}" by ${book.authorName || 'Author'} on NOVELIX:`,
+      url: url
+    }).catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(url).then(() => showToast('Book link copied to clipboard!'));
+  }
+}
+
 async function launchActiveReader() {
   const book = APP_STATE.selectedBook;
   if (!book || !book.id) {
@@ -8948,6 +9182,8 @@ function switchPage(pageId) {
   if (pageId === 'publish') {
     updatePublishAccessState();
     populatePublishSeriesDropdown();
+    syncPublishDriveAccountsUI();
+    loadConnectedDriveAccounts();
   }
   if (pageId === 'explore') renderExploreGridView();
   if (pageId === 'drive') loadConnectedDriveAccounts();
@@ -9124,5 +9360,5 @@ with open("out/index.html", "w", encoding="utf-8") as f:
     f.write(HTML_CONTENT)
 import json
 with open("out/version.json", "w", encoding="utf-8") as vf:
-    json.dump({"version": "12.2.0", "build": 12200, "releaseDate": "2026-11-11", "name": "NOVELIX 12.2 Enterprise"}, vf, indent=2)
+    json.dump({"version": "12.3.0", "build": 12300, "releaseDate": "2026-11-11", "name": "NOVELIX 12.3 Pro Suite"}, vf, indent=2)
 print("Regenerated out/index.html & out/version.json successfully")
