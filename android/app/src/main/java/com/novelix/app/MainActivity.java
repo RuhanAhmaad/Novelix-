@@ -97,6 +97,56 @@ public class MainActivity extends BridgeActivity {
             }
             return true;
         }
+
+        @JavascriptInterface
+        public void installApk(final String filePath) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        java.io.File file = null;
+                        if (filePath != null && !filePath.isEmpty()) {
+                            file = new java.io.File(filePath);
+                        }
+                        if (file == null || !file.exists()) {
+                            file = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "novelix.apk");
+                        }
+                        if (file == null || !file.exists()) {
+                            file = new java.io.File("/sdcard/Download/novelix.apk");
+                        }
+
+                        if (file != null && file.exists()) {
+                            Intent intent = new Intent(Intent.ACTION_VIEW);
+                            android.net.Uri uri;
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                uri = androidx.core.content.FileProvider.getUriForFile(
+                                    MainActivity.this,
+                                    getPackageName() + ".fileprovider",
+                                    file
+                                );
+                                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } else {
+                                uri = android.net.Uri.fromFile(file);
+                            }
+                            intent.setDataAndType(uri, "application/vnd.android.package-archive");
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(intent);
+                        } else {
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/RuhanAhmaad/Novelix-/releases/latest"));
+                            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(browserIntent);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        try {
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/RuhanAhmaad/Novelix-/releases/latest"));
+                            browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            startActivity(browserIntent);
+                        } catch (Exception ex) {}
+                    }
+                }
+            });
+        }
     }
 
     public void sendSystemNotification(String title, String message, String bookId) {
